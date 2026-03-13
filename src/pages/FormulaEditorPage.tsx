@@ -7,17 +7,27 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Search, Trash2, GripVertical, Save, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
+import { toast } from 'sonner';
 
 const PIE_COLORS = [
   'hsl(210, 90%, 50%)', 'hsl(170, 60%, 45%)', 'hsl(38, 92%, 50%)',
   'hsl(0, 72%, 55%)', 'hsl(270, 60%, 55%)', 'hsl(140, 50%, 45%)',
   'hsl(30, 80%, 55%)', 'hsl(200, 70%, 50%)', 'hsl(320, 60%, 50%)',
+];
+
+const DEFAULT_SUMMARY_ITEMS = [
+  { id: 'crude_protein', label: '粗蛋白質' },
+  { id: 'crude_fat', label: '粗脂肪' },
+  { id: 'carbohydrate', label: '碳水化合物' },
+  { id: 'ca_ph_ratio', label: '鈣磷比' },
 ];
 
 interface SortableItemProps {
@@ -78,6 +88,8 @@ const FormulaEditorPage: React.FC = () => {
   const [formulaIngredients, setFormulaIngredients] = useState<FormulaIngredient[]>([]);
   const [search, setSearch] = useState('');
   const [selectedChannelId, setSelectedChannelId] = useState('');
+  const [summaryItems, setSummaryItems] = useState(DEFAULT_SUMMARY_ITEMS);
+  const [summaryEditOpen, setSummaryEditOpen] = useState(false);
 
   const selectedFormula = formulas.find(f => f.id === selectedFormulaId);
 
@@ -123,7 +135,6 @@ const FormulaEditorPage: React.FC = () => {
     }
   };
 
-  // Calculate totals
   const totals = useMemo(() => {
     const result: Record<string, number> = {};
     formulaIngredients.forEach(fi => {
@@ -139,14 +150,32 @@ const FormulaEditorPage: React.FC = () => {
     return result;
   }, [formulaIngredients, ingredients, nutrients]);
 
-  const protein = totals['crude_protein'] || 0;
-  const fat = totals['crude_fat'] || 0;
-  const carb = totals['carbohydrate'] || 0;
   const calcium = totals['calcium'] || 0;
   const phosphorus = totals['phosphorus'] || 0;
   const caPhRatio = phosphorus > 0 ? (calcium / phosphorus).toFixed(2) : 'N/A';
 
-  // Pie chart data
+  const getSummaryValue = (id: string) => {
+    if (id === 'ca_ph_ratio') return caPhRatio;
+    const val = totals[id];
+    if (val === undefined) return 'N/A';
+    const n = nutrients.find(nt => nt.id === id);
+    return `${val.toFixed(2)} ${n?.unit || ''}`;
+  };
+
+  // Nutrient options for summary editor
+  const availableForSummary = useMemo(() => {
+    const special = [{ id: 'ca_ph_ratio', label: '鈣磷比 (鈣/磷)' }];
+    const fromNutrients = nutrients.map(n => ({ id: n.id, label: `${n.name} (${n.unit})` }));
+    return [...special, ...fromNutrients];
+  }, [nutrients]);
+
+  const toggleSummaryItem = (id: string, label: string) => {
+    setSummaryItems(prev => {
+      if (prev.some(s => s.id === id)) return prev.filter(s => s.id !== id);
+      return [...prev, { id, label: label.split(' (')[0] }];
+    });
+  };
+
   const pieData = useMemo(() => {
     const categories: Record<string, number> = {};
     nutrients.forEach(n => {
@@ -162,7 +191,6 @@ const FormulaEditorPage: React.FC = () => {
 
   const totalPieValue = pieData.reduce((s, d) => s + d.value, 0);
 
-  // Validation
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
@@ -192,6 +220,7 @@ const FormulaEditorPage: React.FC = () => {
       channelId: selectedChannelId,
       updatedAt: new Date().toISOString(),
     });
+    toast.success('配方已儲存');
   };
 
   return (
@@ -217,32 +246,46 @@ const FormulaEditorPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary bar */}
-      <Card className="p-3">
-        <div className="flex flex-wrap gap-4 text-sm">
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">粗蛋白質:</span>
-            <span className="font-semibold">{protein.toFixed(2)} g</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">粗脂肪:</span>
-            <span className="font-semibold">{fat.toFixed(2)} g</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">碳水化合物:</span>
-            <span className="font-semibold">{carb.toFixed(2)} g</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">鈣磷比:</span>
-            <span className="font-semibold">{caPhRatio}</span>
-          </div>
+      {/* Summary bar - editable */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-medium text-muted-foreground">快速摘要</h3>
+          <Button variant="ghost" size="sm" onClick={() => setSummaryEditOpen(true)} className="h-6 px-2 gap-1 text-xs">
+            <Settings2 className="h-3 w-3" /> 編輯
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {summaryItems.map(item => (
+            <div key={item.id} className="bg-muted/50 rounded-lg px-3 py-2.5 text-center">
+              <div className="text-xs text-muted-foreground mb-0.5">{item.label}</div>
+              <div className="text-lg font-bold tracking-tight">{getSummaryValue(item.id)}</div>
+            </div>
+          ))}
         </div>
       </Card>
 
+      {/* Summary edit dialog */}
+      <Dialog open={summaryEditOpen} onOpenChange={setSummaryEditOpen}>
+        <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto scrollbar-thin">
+          <DialogHeader>
+            <DialogTitle>編輯快速摘要項目</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1">
+            {availableForSummary.map(opt => (
+              <label key={opt.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                <Checkbox
+                  checked={summaryItems.some(s => s.id === opt.id)}
+                  onCheckedChange={() => toggleSummaryItem(opt.id, opt.label)}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left: Editor */}
         <div className="lg:col-span-2 space-y-3">
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -267,7 +310,6 @@ const FormulaEditorPage: React.FC = () => {
             </Card>
           )}
 
-          {/* Ingredient list */}
           <Card className="p-3">
             <h3 className="text-sm font-medium mb-2 text-muted-foreground">配方原料</h3>
             {formulaIngredients.length === 0 ? (
@@ -295,7 +337,6 @@ const FormulaEditorPage: React.FC = () => {
           </Card>
         </div>
 
-        {/* Right: Summary & Pie */}
         <div className="space-y-4">
           <Card className="p-4">
             <h3 className="text-sm font-medium mb-3">營養成分組成圖</h3>
@@ -326,7 +367,6 @@ const FormulaEditorPage: React.FC = () => {
             )}
           </Card>
 
-          {/* Nutrient details */}
           <Card className="p-4 max-h-96 overflow-y-auto scrollbar-thin">
             <h3 className="text-sm font-medium mb-2">營養成分加總</h3>
             {Object.entries(NUTRIENT_CATEGORY_LABELS).map(([cat, label]) => {
@@ -348,7 +388,6 @@ const FormulaEditorPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Validation warnings */}
       {failures.length > 0 && (
         <Card className="p-4 border-destructive bg-destructive/5">
           <div className="flex items-center gap-2 mb-2">
