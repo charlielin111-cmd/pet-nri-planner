@@ -54,7 +54,7 @@ const MarketChannelsPage: React.FC = () => {
     const limits: Record<string, NutrientLimit> = {};
     Object.entries(limitForms).forEach(([nid, f]) => {
       if (f.type === 'none') return;
-      const limit: NutrientLimit = { type: f.type === 'none' ? 'min' : f.type };
+      const limit: NutrientLimit = { type: f.type as NutrientLimit['type'] };
       if (f.min) limit.min = parseFloat(f.min);
       if (f.max) limit.max = parseFloat(f.max);
       limits[nid] = limit;
