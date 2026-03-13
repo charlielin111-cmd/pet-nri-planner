@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { Plus, Trash2, Download } from 'lucide-react';
+import { Plus, Trash2, Download, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
 const FormulasPage: React.FC = () => {
@@ -28,11 +29,11 @@ const FormulasPage: React.FC = () => {
     };
     await saveFormula(formula);
     setCode(''); setName(''); setChannelId('');
+    toast.success('配方已新增');
   };
 
   const handleExport = (formula: Formula) => {
     const wb = XLSX.utils.book_new();
-    // Ingredient list
     const ingRows = formula.ingredients.map(fi => {
       const ing = ingredients.find(i => i.id === fi.ingredientId);
       return { 物料編號: ing?.materialCode || '', 品名: ing?.name || '', 用量g: fi.amount };
@@ -40,7 +41,6 @@ const FormulasPage: React.FC = () => {
     const ws1 = XLSX.utils.json_to_sheet(ingRows);
     XLSX.utils.book_append_sheet(wb, ws1, '配方原料');
 
-    // Nutrient totals
     const totals: Record<string, number> = {};
     formula.ingredients.forEach(fi => {
       const ing = ingredients.find(i => i.id === fi.ingredientId);
@@ -61,12 +61,17 @@ const FormulasPage: React.FC = () => {
     XLSX.utils.book_append_sheet(wb, ws2, '營養成分');
 
     XLSX.writeFile(wb, `${formula.code}_${formula.name}.xlsx`);
+    toast.success('配方已匯出');
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteFormula(id);
+    toast.success('配方已刪除');
   };
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">配方管理</h1>
-      {/* Add form */}
       <Card className="p-4">
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
           <div>
@@ -94,7 +99,6 @@ const FormulasPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Formula list */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -128,7 +132,7 @@ const FormulasPage: React.FC = () => {
                         <Button variant="ghost" size="icon" onClick={() => handleExport(f)} title="匯出 Excel">
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteFormula(f.id)} title="刪除">
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(f.id)} title="刪除">
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
