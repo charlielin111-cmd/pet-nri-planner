@@ -1,0 +1,373 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAppContext } from '@/contexts/AppContext';
+import { FormulaIngredient, ValidationResult } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { Search, Trash2, GripVertical, Save, AlertTriangle } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
+
+const PIE_COLORS = [
+  'hsl(210, 90%, 50%)', 'hsl(170, 60%, 45%)', 'hsl(38, 92%, 50%)',
+  'hsl(0, 72%, 55%)', 'hsl(270, 60%, 55%)', 'hsl(140, 50%, 45%)',
+  'hsl(30, 80%, 55%)', 'hsl(200, 70%, 50%)', 'hsl(320, 60%, 50%)',
+];
+
+interface SortableItemProps {
+  fi: FormulaIngredient;
+  index: number;
+  ingredientName: string;
+  materialCode: string;
+  onAmountChange: (idx: number, val: number) => void;
+  onRemove: (idx: number) => void;
+}
+
+const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onRemove }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fi.ingredientId + '-' + index });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-2 px-2 border-b bg-card rounded-md mb-1">
+      <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1">
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <span className="text-xs font-mono text-muted-foreground w-16 shrink-0">{materialCode}</span>
+      <span className="text-sm font-medium flex-1 min-w-0 truncate">{ingredientName}</span>
+      <div className="flex items-center gap-2 shrink-0">
+        <Slider
+          value={[fi.amount]}
+          onValueChange={([v]) => onAmountChange(index, v)}
+          max={500}
+          step={1}
+          className="w-24"
+        />
+        <Input
+          type="number"
+          value={fi.amount}
+          onChange={e => onAmountChange(index, Number(e.target.value) || 0)}
+          className="w-20 text-right text-sm h-8"
+          min={0}
+        />
+        <span className="text-xs text-muted-foreground">g</span>
+      </div>
+      <button onClick={() => onRemove(index)} className="text-muted-foreground hover:text-destructive p-1">
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+};
+
+const FormulaEditorPage: React.FC = () => {
+  const { ingredients, channels, formulas, nutrients, saveFormula } = useAppContext();
+  const [searchParams] = useSearchParams();
+  const formulaId = searchParams.get('formula');
+
+  const [selectedFormulaId, setSelectedFormulaId] = useState(formulaId || '');
+  const [formulaIngredients, setFormulaIngredients] = useState<FormulaIngredient[]>([]);
+  const [search, setSearch] = useState('');
+  const [selectedChannelId, setSelectedChannelId] = useState('');
+
+  const selectedFormula = formulas.find(f => f.id === selectedFormulaId);
+
+  useEffect(() => {
+    if (selectedFormula) {
+      setFormulaIngredients([...selectedFormula.ingredients]);
+      setSelectedChannelId(selectedFormula.channelId || '');
+    }
+  }, [selectedFormula]);
+
+  useEffect(() => {
+    if (formulaId) setSelectedFormulaId(formulaId);
+  }, [formulaId]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const filteredIngredients = useMemo(() => {
+    if (!search.trim()) return ingredients;
+    const q = search.toLowerCase();
+    return ingredients.filter(i => i.name.toLowerCase().includes(q) || i.materialCode.toLowerCase().includes(q));
+  }, [ingredients, search]);
+
+  const addIngredient = (ingId: string) => {
+    if (formulaIngredients.some(fi => fi.ingredientId === ingId)) return;
+    setFormulaIngredients(prev => [...prev, { ingredientId: ingId, amount: 0 }]);
+  };
+
+  const updateAmount = (idx: number, val: number) => {
+    setFormulaIngredients(prev => prev.map((fi, i) => i === idx ? { ...fi, amount: val } : fi));
+  };
+
+  const removeIngredient = (idx: number) => {
+    setFormulaIngredients(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = formulaIngredients.findIndex((fi, i) => fi.ingredientId + '-' + i === active.id);
+    const newIdx = formulaIngredients.findIndex((fi, i) => fi.ingredientId + '-' + i === over.id);
+    if (oldIdx !== -1 && newIdx !== -1) {
+      setFormulaIngredients(prev => arrayMove(prev, oldIdx, newIdx));
+    }
+  };
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    const result: Record<string, number> = {};
+    formulaIngredients.forEach(fi => {
+      const ing = ingredients.find(i => i.id === fi.ingredientId);
+      if (!ing) return;
+      nutrients.forEach(n => {
+        const val = ing.nutrients[n.id];
+        if (val !== 'ND' && typeof val === 'number') {
+          result[n.id] = (result[n.id] || 0) + val * fi.amount;
+        }
+      });
+    });
+    return result;
+  }, [formulaIngredients, ingredients, nutrients]);
+
+  const protein = totals['crude_protein'] || 0;
+  const fat = totals['crude_fat'] || 0;
+  const carb = totals['carbohydrate'] || 0;
+  const calcium = totals['calcium'] || 0;
+  const phosphorus = totals['phosphorus'] || 0;
+  const caPhRatio = phosphorus > 0 ? (calcium / phosphorus).toFixed(2) : 'N/A';
+
+  // Pie chart data
+  const pieData = useMemo(() => {
+    const categories: Record<string, number> = {};
+    nutrients.forEach(n => {
+      if (totals[n.id]) {
+        const catLabel = NUTRIENT_CATEGORY_LABELS[n.category];
+        categories[catLabel] = (categories[catLabel] || 0) + totals[n.id];
+      }
+    });
+    return Object.entries(categories)
+      .filter(([, v]) => v > 0)
+      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(2)) }));
+  }, [totals, nutrients]);
+
+  const totalPieValue = pieData.reduce((s, d) => s + d.value, 0);
+
+  // Validation
+  const selectedChannel = channels.find(c => c.id === selectedChannelId);
+  const validationResults: ValidationResult[] = useMemo(() => {
+    if (!selectedChannel) return [];
+    return nutrients
+      .filter(n => selectedChannel.limits[n.id])
+      .map(n => {
+        const limit = selectedChannel.limits[n.id];
+        const value = totals[n.id] || 0;
+        let passed = true;
+        if (limit.type === 'min' && limit.min !== undefined) passed = value >= limit.min;
+        else if (limit.type === 'max' && limit.max !== undefined) passed = value <= limit.max;
+        else if (limit.type === 'range') {
+          if (limit.min !== undefined && value < limit.min) passed = false;
+          if (limit.max !== undefined && value > limit.max) passed = false;
+        }
+        return { nutrientId: n.id, nutrientName: n.name, value, unit: n.unit, limit, passed };
+      });
+  }, [selectedChannel, nutrients, totals]);
+
+  const failures = validationResults.filter(r => !r.passed);
+
+  const handleSave = async () => {
+    if (!selectedFormula) return;
+    await saveFormula({
+      ...selectedFormula,
+      ingredients: formulaIngredients,
+      channelId: selectedChannelId,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold">配方組成</h1>
+        <div className="flex items-center gap-3">
+          <Select value={selectedFormulaId} onValueChange={setSelectedFormulaId}>
+            <SelectTrigger className="w-52"><SelectValue placeholder="選擇配方" /></SelectTrigger>
+            <SelectContent>
+              {formulas.map(f => <SelectItem key={f.id} value={f.id}>{f.code} - {f.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={selectedChannelId} onValueChange={setSelectedChannelId}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="審查通路" /></SelectTrigger>
+            <SelectContent>
+              {channels.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button onClick={handleSave} disabled={!selectedFormula} className="gap-1.5">
+            <Save className="h-4 w-4" /> 儲存
+          </Button>
+        </div>
+      </div>
+
+      {/* Summary bar */}
+      <Card className="p-3">
+        <div className="flex flex-wrap gap-4 text-sm">
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">粗蛋白質:</span>
+            <span className="font-semibold">{protein.toFixed(2)} g</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">粗脂肪:</span>
+            <span className="font-semibold">{fat.toFixed(2)} g</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">碳水化合物:</span>
+            <span className="font-semibold">{carb.toFixed(2)} g</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">鈣磷比:</span>
+            <span className="font-semibold">{caPhRatio}</span>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left: Editor */}
+        <div className="lg:col-span-2 space-y-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="搜尋原料（編號或名稱）..."
+              className="pl-9"
+            />
+          </div>
+          {search && filteredIngredients.length > 0 && (
+            <Card className="max-h-48 overflow-y-auto scrollbar-thin p-1">
+              {filteredIngredients.map(ing => (
+                <button
+                  key={ing.id}
+                  onClick={() => { addIngredient(ing.id); setSearch(''); }}
+                  className="w-full text-left px-3 py-2 text-sm rounded hover:bg-muted flex justify-between"
+                >
+                  <span>{ing.materialCode} - {ing.name}</span>
+                  <span className="text-muted-foreground">${ing.pricePerGram}/g</span>
+                </button>
+              ))}
+            </Card>
+          )}
+
+          {/* Ingredient list */}
+          <Card className="p-3">
+            <h3 className="text-sm font-medium mb-2 text-muted-foreground">配方原料</h3>
+            {formulaIngredients.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">搜尋並選取原料加入配方</p>
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={formulaIngredients.map((fi, i) => fi.ingredientId + '-' + i)} strategy={verticalListSortingStrategy}>
+                  {formulaIngredients.map((fi, idx) => {
+                    const ing = ingredients.find(i => i.id === fi.ingredientId);
+                    return (
+                      <SortableIngredientRow
+                        key={fi.ingredientId + '-' + idx}
+                        fi={fi}
+                        index={idx}
+                        ingredientName={ing?.name || '未知'}
+                        materialCode={ing?.materialCode || ''}
+                        onAmountChange={updateAmount}
+                        onRemove={removeIngredient}
+                      />
+                    );
+                  })}
+                </SortableContext>
+              </DndContext>
+            )}
+          </Card>
+        </div>
+
+        {/* Right: Summary & Pie */}
+        <div className="space-y-4">
+          <Card className="p-4">
+            <h3 className="text-sm font-medium mb-3">營養成分組成圖</h3>
+            {pieData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={40}>
+                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-1 mt-2">
+                  {pieData.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span>{d.name}</span>
+                      </div>
+                      <span className="font-medium">{totalPieValue > 0 ? ((d.value / totalPieValue) * 100).toFixed(1) : 0}%</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">加入原料後顯示圖表</p>
+            )}
+          </Card>
+
+          {/* Nutrient details */}
+          <Card className="p-4 max-h-96 overflow-y-auto scrollbar-thin">
+            <h3 className="text-sm font-medium mb-2">營養成分加總</h3>
+            {Object.entries(NUTRIENT_CATEGORY_LABELS).map(([cat, label]) => {
+              const catNutrients = nutrients.filter(n => n.category === cat);
+              if (catNutrients.length === 0) return null;
+              return (
+                <div key={cat} className="mb-3">
+                  <h4 className="text-xs font-medium text-muted-foreground mb-1">{label}</h4>
+                  {catNutrients.map(n => (
+                    <div key={n.id} className="flex justify-between text-xs py-0.5">
+                      <span>{n.name}</span>
+                      <span className="font-mono">{totals[n.id] !== undefined ? totals[n.id].toFixed(4) : 'ND'} {n.unit}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </Card>
+        </div>
+      </div>
+
+      {/* Validation warnings */}
+      {failures.length > 0 && (
+        <Card className="p-4 border-destructive bg-destructive/5">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <h3 className="font-medium text-destructive">規範限值不合格項目</h3>
+          </div>
+          <div className="space-y-1">
+            {failures.map(f => (
+              <div key={f.nutrientId} className="text-sm">
+                <span className="font-medium">{f.nutrientName}</span>：
+                目前 {f.value.toFixed(4)} {f.unit}，
+                要求{f.limit.type === 'min' ? `≧ ${f.limit.min}` : f.limit.type === 'max' ? `≦ ${f.limit.max}` : `${f.limit.min} ~ ${f.limit.max}`} {f.unit}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+export default FormulaEditorPage;
