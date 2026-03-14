@@ -152,6 +152,23 @@ const FormulaEditorPage: React.FC = () => {
     setFormulaIngredients(prev => prev.map((fi, i) => i === idx ? { ...fi, amount: val } : fi));
   };
 
+  const updatePercent = (idx: number, newPct: number) => {
+    const currentTotal = formulaIngredients.reduce((s, fi) => s + fi.amount, 0);
+    if (currentTotal <= 0) return;
+    const clampedPct = Math.max(0, Math.min(100, newPct));
+    const newAmount = (clampedPct / 100) * currentTotal;
+    const oldAmount = formulaIngredients[idx].amount;
+    const diff = newAmount - oldAmount;
+    const othersTotal = currentTotal - oldAmount;
+
+    setFormulaIngredients(prev => prev.map((fi, i) => {
+      if (i === idx) return { ...fi, amount: parseFloat(newAmount.toFixed(2)) };
+      if (othersTotal <= 0) return fi;
+      const scale = 1 - diff / othersTotal;
+      return { ...fi, amount: parseFloat(Math.max(0, fi.amount * scale).toFixed(2)) };
+    }));
+  };
+
   const removeIngredient = (idx: number) => {
     setFormulaIngredients(prev => prev.filter((_, i) => i !== idx));
   };
