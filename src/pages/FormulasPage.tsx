@@ -16,6 +16,8 @@ const FormulasPage: React.FC = () => {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [channelId, setChannelId] = useState('');
+  const [servingSize, setServingSize] = useState('');
+  const [note, setNote] = useState('');
 
   const handleAdd = async () => {
     if (!code.trim() || !name.trim()) return;
@@ -24,11 +26,13 @@ const FormulasPage: React.FC = () => {
       code: code.trim(),
       name: name.trim(),
       channelId,
+      servingSize: servingSize ? Number(servingSize) : undefined,
+      note: note.trim() || undefined,
       ingredients: [],
       updatedAt: new Date().toISOString(),
     };
     await saveFormula(formula);
-    setCode(''); setName(''); setChannelId('');
+    setCode(''); setName(''); setChannelId(''); setServingSize(''); setNote('');
     toast.success('配方已新增');
   };
 
@@ -73,7 +77,7 @@ const FormulasPage: React.FC = () => {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">配方管理</h1>
       <Card className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">配方編號</label>
             <Input value={code} onChange={e => setCode(e.target.value)} placeholder="F001" />
@@ -93,6 +97,14 @@ const FormulasPage: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">每份規格 (g)</label>
+            <Input type="number" value={servingSize} onChange={e => setServingSize(e.target.value)} placeholder="100" min={0} step={0.1} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">備註</label>
+            <Input value={note} onChange={e => setNote(e.target.value)} placeholder="備註說明..." />
+          </div>
           <Button onClick={handleAdd} className="gap-1.5">
             <Plus className="h-4 w-4" /> 新增配方
           </Button>
@@ -107,14 +119,16 @@ const FormulasPage: React.FC = () => {
                 <th className="text-left px-4 py-3 font-medium">配方編號</th>
                 <th className="text-left px-4 py-3 font-medium">配方名稱</th>
                 <th className="text-left px-4 py-3 font-medium">對應通路</th>
+                <th className="text-left px-4 py-3 font-medium">每份規格</th>
                 <th className="text-left px-4 py-3 font-medium">原料數</th>
+                <th className="text-left px-4 py-3 font-medium">備註</th>
                 <th className="text-left px-4 py-3 font-medium">最後更新</th>
                 <th className="text-right px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
               {formulas.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">尚無配方，請新增</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">尚無配方，請新增</td></tr>
               )}
               {formulas.map(f => {
                 const ch = channels.find(c => c.id === f.channelId);
@@ -123,7 +137,9 @@ const FormulasPage: React.FC = () => {
                     <td className="px-4 py-3 font-mono">{f.code}</td>
                     <td className="px-4 py-3">{f.name}</td>
                     <td className="px-4 py-3">{ch?.name || '-'}</td>
+                    <td className="px-4 py-3">{f.servingSize ? `${f.servingSize}g` : '-'}</td>
                     <td className="px-4 py-3">{f.ingredients.length}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{f.note || '-'}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
                       {new Date(f.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })}
                     </td>
