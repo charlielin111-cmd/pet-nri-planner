@@ -120,6 +120,7 @@ const FormulaEditorPage: React.FC = () => {
   const [selectedChannelId, setSelectedChannelId] = useState('');
   const [summaryItems, setSummaryItems] = useState(DEFAULT_SUMMARY_ITEMS);
   const [summaryEditOpen, setSummaryEditOpen] = useState(false);
+  const [usePercent, setUsePercent] = useState(false);
 
   const selectedFormula = formulas.find(f => f.id === selectedFormulaId);
 
