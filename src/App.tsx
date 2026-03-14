@@ -27,6 +27,7 @@ const App = () => (
               <Route path="/editor" element={<FormulaEditorPage />} />
               <Route path="/ingredients" element={<IngredientsPage />} />
               <Route path="/channels" element={<MarketChannelsPage />} />
+              <Route path="/batch" element={<BatchCalcPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>
