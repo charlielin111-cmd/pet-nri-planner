@@ -191,6 +191,18 @@ const FormulaEditorPage: React.FC = () => {
 
   const totalPieValue = pieData.reduce((s, d) => s + d.value, 0);
 
+  // Ingredient weight distribution pie data
+  const ingredientPieData = useMemo(() => {
+    return formulaIngredients
+      .filter(fi => fi.amount > 0)
+      .map(fi => {
+        const ing = ingredients.find(i => i.id === fi.ingredientId);
+        return { name: ing?.name || '未知', value: fi.amount };
+      });
+  }, [formulaIngredients, ingredients]);
+
+  const totalWeight = ingredientPieData.reduce((s, d) => s + d.value, 0);
+
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
