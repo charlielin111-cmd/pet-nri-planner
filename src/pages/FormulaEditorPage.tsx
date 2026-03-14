@@ -390,7 +390,23 @@ const FormulaEditorPage: React.FC = () => {
           )}
 
           <Card className="p-3">
-            <h3 className="text-sm font-medium mb-2 text-muted-foreground">配方原料</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground">配方原料</h3>
+              <div className="flex items-center gap-1 text-xs">
+                <button
+                  onClick={() => setUsePercent(false)}
+                  className={`px-2 py-1 rounded-l-md border transition-colors ${!usePercent ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                >
+                  公克 (g)
+                </button>
+                <button
+                  onClick={() => setUsePercent(true)}
+                  className={`px-2 py-1 rounded-r-md border transition-colors ${usePercent ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                >
+                  百分比 (%)
+                </button>
+              </div>
+            </div>
             {formulaIngredients.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">搜尋並選取原料加入配方</p>
             ) : (
@@ -406,7 +422,10 @@ const FormulaEditorPage: React.FC = () => {
                         ingredientName={ing?.name || '未知'}
                         materialCode={ing?.materialCode || ''}
                         onAmountChange={updateAmount}
+                        onPercentChange={updatePercent}
                         onRemove={removeIngredient}
+                        usePercent={usePercent}
+                        totalWeight={totalWeight}
                       />
                     );
                   })}
