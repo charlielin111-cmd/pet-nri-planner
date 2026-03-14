@@ -119,14 +119,16 @@ const FormulasPage: React.FC = () => {
                 <th className="text-left px-4 py-3 font-medium">配方編號</th>
                 <th className="text-left px-4 py-3 font-medium">配方名稱</th>
                 <th className="text-left px-4 py-3 font-medium">對應通路</th>
+                <th className="text-left px-4 py-3 font-medium">每份規格</th>
                 <th className="text-left px-4 py-3 font-medium">原料數</th>
+                <th className="text-left px-4 py-3 font-medium">備註</th>
                 <th className="text-left px-4 py-3 font-medium">最後更新</th>
                 <th className="text-right px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
               {formulas.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">尚無配方，請新增</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">尚無配方，請新增</td></tr>
               )}
               {formulas.map(f => {
                 const ch = channels.find(c => c.id === f.channelId);
