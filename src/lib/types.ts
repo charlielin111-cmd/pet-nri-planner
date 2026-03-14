@@ -49,6 +49,8 @@ export interface Formula {
   code: string;
   name: string;
   channelId: string;
+  servingSize?: number; // grams per serving
+  note?: string;
   ingredients: FormulaIngredient[];
   updatedAt: string;
 }
