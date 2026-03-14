@@ -9,6 +9,7 @@ import FormulasPage from "./pages/FormulasPage";
 import FormulaEditorPage from "./pages/FormulaEditorPage";
 import IngredientsPage from "./pages/IngredientsPage";
 import MarketChannelsPage from "./pages/MarketChannelsPage";
+import BatchCalcPage from "./pages/BatchCalcPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
