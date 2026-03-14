@@ -37,10 +37,13 @@ interface SortableItemProps {
   ingredientName: string;
   materialCode: string;
   onAmountChange: (idx: number, val: number) => void;
+  onPercentChange: (idx: number, pct: number) => void;
   onRemove: (idx: number) => void;
+  usePercent: boolean;
+  totalWeight: number;
 }
 
-const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onRemove }) => {
+const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fi.ingredientId + '-' + index });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -48,6 +51,8 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : undefined,
   };
+
+  const pct = totalWeight > 0 ? (fi.amount / totalWeight) * 100 : 0;
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-2 px-2 border-b bg-card rounded-md mb-1">
@@ -57,21 +62,45 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
       <span className="text-xs font-mono text-muted-foreground w-16 shrink-0">{materialCode}</span>
       <span className="text-sm font-medium flex-1 min-w-0 truncate">{ingredientName}</span>
       <div className="flex items-center gap-2 shrink-0">
-        <Slider
-          value={[fi.amount]}
-          onValueChange={([v]) => onAmountChange(index, v)}
-          max={500}
-          step={1}
-          className="w-24"
-        />
-        <Input
-          type="number"
-          value={fi.amount}
-          onChange={e => onAmountChange(index, Number(e.target.value) || 0)}
-          className="w-20 text-right text-sm h-8"
-          min={0}
-        />
-        <span className="text-xs text-muted-foreground">g</span>
+        {usePercent ? (
+          <>
+            <Slider
+              value={[pct]}
+              onValueChange={([v]) => onPercentChange(index, v)}
+              max={100}
+              step={0.1}
+              className="w-24"
+            />
+            <Input
+              type="number"
+              value={parseFloat(pct.toFixed(1))}
+              onChange={e => onPercentChange(index, Number(e.target.value) || 0)}
+              className="w-20 text-right text-sm h-8"
+              min={0}
+              max={100}
+              step={0.1}
+            />
+            <span className="text-xs text-muted-foreground">%</span>
+          </>
+        ) : (
+          <>
+            <Slider
+              value={[fi.amount]}
+              onValueChange={([v]) => onAmountChange(index, v)}
+              max={500}
+              step={1}
+              className="w-24"
+            />
+            <Input
+              type="number"
+              value={fi.amount}
+              onChange={e => onAmountChange(index, Number(e.target.value) || 0)}
+              className="w-20 text-right text-sm h-8"
+              min={0}
+            />
+            <span className="text-xs text-muted-foreground">g</span>
+          </>
+        )}
       </div>
       <button onClick={() => onRemove(index)} className="text-muted-foreground hover:text-destructive p-1">
         <Trash2 className="h-4 w-4" />
