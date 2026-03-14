@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAppContext } from '@/contexts/AppContext';
-import { FlaskConical, Package, ShieldCheck, FileText, Undo2, Download, Upload } from 'lucide-react';
+import { FlaskConical, Package, ShieldCheck, FileText, Undo2, Download, Upload, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
