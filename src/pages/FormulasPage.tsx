@@ -77,7 +77,7 @@ const FormulasPage: React.FC = () => {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">配方管理</h1>
       <Card className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">配方編號</label>
             <Input value={code} onChange={e => setCode(e.target.value)} placeholder="F001" />
@@ -96,6 +96,14 @@ const FormulasPage: React.FC = () => {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">每份規格 (g)</label>
+            <Input type="number" value={servingSize} onChange={e => setServingSize(e.target.value)} placeholder="100" min={0} step={0.1} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">備註</label>
+            <Input value={note} onChange={e => setNote(e.target.value)} placeholder="備註說明..." />
           </div>
           <Button onClick={handleAdd} className="gap-1.5">
             <Plus className="h-4 w-4" /> 新增配方
