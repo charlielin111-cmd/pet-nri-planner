@@ -10,7 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -191,6 +191,18 @@ const FormulaEditorPage: React.FC = () => {
 
   const totalPieValue = pieData.reduce((s, d) => s + d.value, 0);
 
+  // Ingredient weight distribution pie data
+  const ingredientPieData = useMemo(() => {
+    return formulaIngredients
+      .filter(fi => fi.amount > 0)
+      .map(fi => {
+        const ing = ingredients.find(i => i.id === fi.ingredientId);
+        return { name: ing?.name || '未知', value: fi.amount };
+      });
+  }, [formulaIngredients, ingredients]);
+
+  const totalWeight = ingredientPieData.reduce((s, d) => s + d.value, 0);
+
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
@@ -254,13 +266,32 @@ const FormulaEditorPage: React.FC = () => {
             <Settings2 className="h-3 w-3" /> 編輯
           </Button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {summaryItems.map(item => (
-            <div key={item.id} className="bg-muted/50 rounded-lg px-3 py-2.5 text-center">
-              <div className="text-xs text-muted-foreground mb-0.5">{item.label}</div>
-              <div className="text-lg font-bold tracking-tight">{getSummaryValue(item.id)}</div>
-            </div>
-          ))}
+        <div className="flex gap-4 items-start">
+          {/* Ingredient weight pie chart */}
+          <div className="shrink-0 w-48">
+            <div className="text-xs text-muted-foreground mb-1 text-center">原料佔比</div>
+            {ingredientPieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={160}>
+                <PieChart>
+                  <Pie data={ingredientPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={30}>
+                    {ingredientPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(1)}g (${totalWeight > 0 ? ((value / totalWeight) * 100).toFixed(1) : 0}%)`, name]} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">尚無原料</div>
+            )}
+          </div>
+          {/* Summary items grid */}
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {summaryItems.map(item => (
+              <div key={item.id} className="bg-muted/50 rounded-lg px-3 py-2.5 text-center">
+                <div className="text-xs text-muted-foreground mb-0.5">{item.label}</div>
+                <div className="text-lg font-bold tracking-tight">{getSummaryValue(item.id)}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </Card>
 

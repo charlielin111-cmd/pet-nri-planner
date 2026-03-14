@@ -9,6 +9,7 @@ import FormulasPage from "./pages/FormulasPage";
 import FormulaEditorPage from "./pages/FormulaEditorPage";
 import IngredientsPage from "./pages/IngredientsPage";
 import MarketChannelsPage from "./pages/MarketChannelsPage";
+import BatchCalcPage from "./pages/BatchCalcPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
               <Route path="/editor" element={<FormulaEditorPage />} />
               <Route path="/ingredients" element={<IngredientsPage />} />
               <Route path="/channels" element={<MarketChannelsPage />} />
+              <Route path="/batch" element={<BatchCalcPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>

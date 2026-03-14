@@ -1,13 +1,14 @@
 import React, { useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAppContext } from '@/contexts/AppContext';
-import { FlaskConical, Package, ShieldCheck, FileText, Undo2, Download, Upload } from 'lucide-react';
+import { FlaskConical, Package, ShieldCheck, FileText, Undo2, Download, Upload, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 const navItems = [
   { to: '/', label: '配方', icon: FileText },
   { to: '/editor', label: '配方組成', icon: FlaskConical },
+  { to: '/batch', label: '核配', icon: Scale },
   { to: '/ingredients', label: '原料設定', icon: Package },
   { to: '/channels', label: '規範限值', icon: ShieldCheck },
 ];
