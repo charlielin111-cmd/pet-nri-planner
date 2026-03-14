@@ -16,6 +16,8 @@ const FormulasPage: React.FC = () => {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [channelId, setChannelId] = useState('');
+  const [servingSize, setServingSize] = useState('');
+  const [note, setNote] = useState('');
 
   const handleAdd = async () => {
     if (!code.trim() || !name.trim()) return;
@@ -24,11 +26,13 @@ const FormulasPage: React.FC = () => {
       code: code.trim(),
       name: name.trim(),
       channelId,
+      servingSize: servingSize ? Number(servingSize) : undefined,
+      note: note.trim() || undefined,
       ingredients: [],
       updatedAt: new Date().toISOString(),
     };
     await saveFormula(formula);
-    setCode(''); setName(''); setChannelId('');
+    setCode(''); setName(''); setChannelId(''); setServingSize(''); setNote('');
     toast.success('配方已新增');
   };
 
