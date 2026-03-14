@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X } from 'lucide-react';
+import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X, Percent, Weight } from 'lucide-react';
+import { Toggle } from '@/components/ui/toggle';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
@@ -36,10 +37,13 @@ interface SortableItemProps {
   ingredientName: string;
   materialCode: string;
   onAmountChange: (idx: number, val: number) => void;
+  onPercentChange: (idx: number, pct: number) => void;
   onRemove: (idx: number) => void;
+  usePercent: boolean;
+  totalWeight: number;
 }
 
-const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onRemove }) => {
+const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fi.ingredientId + '-' + index });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -47,6 +51,8 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : undefined,
   };
+
+  const pct = totalWeight > 0 ? (fi.amount / totalWeight) * 100 : 0;
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-2 px-2 border-b bg-card rounded-md mb-1">
@@ -56,21 +62,45 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
       <span className="text-xs font-mono text-muted-foreground w-16 shrink-0">{materialCode}</span>
       <span className="text-sm font-medium flex-1 min-w-0 truncate">{ingredientName}</span>
       <div className="flex items-center gap-2 shrink-0">
-        <Slider
-          value={[fi.amount]}
-          onValueChange={([v]) => onAmountChange(index, v)}
-          max={500}
-          step={1}
-          className="w-24"
-        />
-        <Input
-          type="number"
-          value={fi.amount}
-          onChange={e => onAmountChange(index, Number(e.target.value) || 0)}
-          className="w-20 text-right text-sm h-8"
-          min={0}
-        />
-        <span className="text-xs text-muted-foreground">g</span>
+        {usePercent ? (
+          <>
+            <Slider
+              value={[pct]}
+              onValueChange={([v]) => onPercentChange(index, v)}
+              max={100}
+              step={0.1}
+              className="w-24"
+            />
+            <Input
+              type="number"
+              value={parseFloat(pct.toFixed(1))}
+              onChange={e => onPercentChange(index, Number(e.target.value) || 0)}
+              className="w-20 text-right text-sm h-8"
+              min={0}
+              max={100}
+              step={0.1}
+            />
+            <span className="text-xs text-muted-foreground">%</span>
+          </>
+        ) : (
+          <>
+            <Slider
+              value={[fi.amount]}
+              onValueChange={([v]) => onAmountChange(index, v)}
+              max={500}
+              step={1}
+              className="w-24"
+            />
+            <Input
+              type="number"
+              value={fi.amount}
+              onChange={e => onAmountChange(index, Number(e.target.value) || 0)}
+              className="w-20 text-right text-sm h-8"
+              min={0}
+            />
+            <span className="text-xs text-muted-foreground">g</span>
+          </>
+        )}
       </div>
       <button onClick={() => onRemove(index)} className="text-muted-foreground hover:text-destructive p-1">
         <Trash2 className="h-4 w-4" />
@@ -90,6 +120,7 @@ const FormulaEditorPage: React.FC = () => {
   const [selectedChannelId, setSelectedChannelId] = useState('');
   const [summaryItems, setSummaryItems] = useState(DEFAULT_SUMMARY_ITEMS);
   const [summaryEditOpen, setSummaryEditOpen] = useState(false);
+  const [usePercent, setUsePercent] = useState(false);
 
   const selectedFormula = formulas.find(f => f.id === selectedFormulaId);
 
@@ -119,6 +150,23 @@ const FormulaEditorPage: React.FC = () => {
 
   const updateAmount = (idx: number, val: number) => {
     setFormulaIngredients(prev => prev.map((fi, i) => i === idx ? { ...fi, amount: val } : fi));
+  };
+
+  const updatePercent = (idx: number, newPct: number) => {
+    const currentTotal = formulaIngredients.reduce((s, fi) => s + fi.amount, 0);
+    if (currentTotal <= 0) return;
+    const clampedPct = Math.max(0, Math.min(100, newPct));
+    const newAmount = (clampedPct / 100) * currentTotal;
+    const oldAmount = formulaIngredients[idx].amount;
+    const diff = newAmount - oldAmount;
+    const othersTotal = currentTotal - oldAmount;
+
+    setFormulaIngredients(prev => prev.map((fi, i) => {
+      if (i === idx) return { ...fi, amount: parseFloat(newAmount.toFixed(2)) };
+      if (othersTotal <= 0) return fi;
+      const scale = 1 - diff / othersTotal;
+      return { ...fi, amount: parseFloat(Math.max(0, fi.amount * scale).toFixed(2)) };
+    }));
   };
 
   const removeIngredient = (idx: number) => {
@@ -342,7 +390,23 @@ const FormulaEditorPage: React.FC = () => {
           )}
 
           <Card className="p-3">
-            <h3 className="text-sm font-medium mb-2 text-muted-foreground">配方原料</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground">配方原料</h3>
+              <div className="flex items-center gap-1 text-xs">
+                <button
+                  onClick={() => setUsePercent(false)}
+                  className={`px-2 py-1 rounded-l-md border transition-colors ${!usePercent ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                >
+                  公克 (g)
+                </button>
+                <button
+                  onClick={() => setUsePercent(true)}
+                  className={`px-2 py-1 rounded-r-md border transition-colors ${usePercent ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                >
+                  百分比 (%)
+                </button>
+              </div>
+            </div>
             {formulaIngredients.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">搜尋並選取原料加入配方</p>
             ) : (
@@ -358,7 +422,10 @@ const FormulaEditorPage: React.FC = () => {
                         ingredientName={ing?.name || '未知'}
                         materialCode={ing?.materialCode || ''}
                         onAmountChange={updateAmount}
+                        onPercentChange={updatePercent}
                         onRemove={removeIngredient}
+                        usePercent={usePercent}
+                        totalWeight={totalWeight}
                       />
                     );
                   })}
