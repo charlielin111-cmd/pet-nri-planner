@@ -145,7 +145,7 @@ const FormulaEditorPage: React.FC = () => {
 
   const addIngredient = (ingId: string) => {
     if (formulaIngredients.some(fi => fi.ingredientId === ingId)) return;
-    setFormulaIngredients(prev => [...prev, { ingredientId: ingId, amount: 0 }]);
+    setFormulaIngredients(prev => [...prev, { ingredientId: ingId, amount: 0.01 }]);
   };
 
   const updateAmount = (idx: number, val: number) => {

@@ -137,7 +137,9 @@ const FormulasPage: React.FC = () => {
                     <td className="px-4 py-3 font-mono">{f.code}</td>
                     <td className="px-4 py-3">{f.name}</td>
                     <td className="px-4 py-3">{ch?.name || '-'}</td>
+                    <td className="px-4 py-3">{f.servingSize ? `${f.servingSize}g` : '-'}</td>
                     <td className="px-4 py-3">{f.ingredients.length}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{f.note || '-'}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">
                       {new Date(f.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })}
                     </td>
