@@ -105,9 +105,9 @@ const BatchCalcPage: React.FC = () => {
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
                           {item.name}
                         </td>
-                        <td className="text-right py-2 font-mono text-muted-foreground">{item.originalAmount.toFixed(1)}</td>
-                        <td className="text-right py-2 font-mono text-muted-foreground">{item.percentage.toFixed(1)}%</td>
-                        <td className="text-right py-2 font-mono font-semibold">{item.scaledAmount.toFixed(2)}</td>
+                        <td className="text-right py-2 font-mono text-muted-foreground">{item.originalAmount.toFixed(2)}</td>
+                        <td className="text-right py-2 font-mono text-muted-foreground">{item.percentage.toFixed(2)}%</td>
+                        <td className="text-right py-2 font-mono font-semibold">{parseFloat(item.scaledAmount.toFixed(2))}</td>
                         <td className="text-right py-2 font-mono text-muted-foreground">${(item.scaledAmount * item.pricePerGram).toFixed(2)}</td>
                       </tr>
                     ))}
