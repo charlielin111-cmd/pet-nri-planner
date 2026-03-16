@@ -45,7 +45,7 @@ const IngredientsPage: React.FC = () => {
 
   const openEdit = (ing: Ingredient) => {
     setEditing(ing);
-    setForm({ materialCode: ing.materialCode, name: ing.name, pricePerGram: ing.pricePerGram });
+    setForm({ materialCode: ing.materialCode, name: ing.name, pricePerGram: ing.pricePerGram, caloriesPer100g: ing.caloriesPer100g || 0 });
     const nv: Record<string, string> = {};
     nutrients.forEach(n => {
       const val = ing.nutrients[n.id];
