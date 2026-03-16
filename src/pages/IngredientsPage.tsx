@@ -17,7 +17,7 @@ const IngredientsPage: React.FC = () => {
   const { ingredients, nutrients, saveIngredient, deleteIngredient } = useAppContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
-  const [form, setForm] = useState({ materialCode: '', name: '', pricePerGram: 0 });
+  const [form, setForm] = useState({ materialCode: '', name: '', pricePerGram: 0, caloriesPer100g: 0 });
   const [nutrientValues, setNutrientValues] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(['materialCode', 'name', 'pricePerGram']));
