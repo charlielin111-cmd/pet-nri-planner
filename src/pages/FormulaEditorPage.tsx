@@ -66,19 +66,19 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
           <>
             <Slider
               value={[pct]}
-              onValueChange={([v]) => onPercentChange(index, v)}
+              onValueChange={([v]) => onPercentChange(index, parseFloat(v.toFixed(2)))}
               max={100}
-              step={0.1}
+              step={0.01}
               className="w-24"
             />
             <Input
               type="number"
-              value={parseFloat(pct.toFixed(1))}
+              value={parseFloat(pct.toFixed(2))}
               onChange={e => onPercentChange(index, Number(e.target.value) || 0)}
               className="w-20 text-right text-sm h-8"
               min={0}
               max={100}
-              step={0.1}
+              step={0.01}
             />
             <span className="text-xs text-muted-foreground">%</span>
           </>

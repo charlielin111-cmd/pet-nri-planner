@@ -27,6 +27,7 @@ export interface Ingredient {
   materialCode: string;
   name: string;
   pricePerGram: number;
+  caloriesPer100g?: number; // kcal per 100g
   nutrients: Record<string, number | 'ND'>;
   updatedAt: string;
 }

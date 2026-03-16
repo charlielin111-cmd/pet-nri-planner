@@ -25,7 +25,7 @@ export const DEFAULT_NUTRIENTS: NutrientDefinition[] = [
   { id: 'calcium', name: '鈣', nameEn: 'Calcium', category: 'mineral', unit: 'g', order: 19 },
   { id: 'phosphorus', name: '磷', nameEn: 'Phosphorus', category: 'mineral', unit: 'g', order: 20 },
   { id: 'potassium', name: '鉀', nameEn: 'Potassium', category: 'mineral', unit: 'g', order: 21 },
-  { id: 'sodium', name: '鈉', nameEn: 'Sodium', category: 'mineral', unit: 'g', order: 22 },
+  { id: 'sodium', name: '鈉', nameEn: 'Sodium', category: 'mineral', unit: 'mg', order: 22 },
   { id: 'chloride', name: '氯', nameEn: 'Chloride', category: 'mineral', unit: 'g', order: 23 },
   { id: 'magnesium', name: '鎂', nameEn: 'Magnesium', category: 'mineral', unit: 'g', order: 24 },
   { id: 'iron', name: '鐵', nameEn: 'Iron', category: 'mineral', unit: 'mg', order: 25 },
