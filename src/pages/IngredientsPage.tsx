@@ -38,7 +38,7 @@ const IngredientsPage: React.FC = () => {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ materialCode: '', name: '', pricePerGram: 0 });
+    setForm({ materialCode: '', name: '', pricePerGram: 0, caloriesPer100g: 0 });
     setNutrientValues({});
     setDialogOpen(true);
   };
