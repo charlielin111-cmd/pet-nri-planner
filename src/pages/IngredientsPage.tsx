@@ -68,6 +68,7 @@ const IngredientsPage: React.FC = () => {
       materialCode: form.materialCode.trim(),
       name: form.name.trim(),
       pricePerGram: form.pricePerGram,
+      caloriesPer100g: form.caloriesPer100g || 0,
       nutrients: parsedNutrients,
       updatedAt: new Date().toISOString(),
     };
