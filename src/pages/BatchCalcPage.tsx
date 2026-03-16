@@ -2,9 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Scale } from 'lucide-react';
+import { Scale, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 
 const PIE_COLORS = [
   'hsl(210, 90%, 50%)', 'hsl(170, 60%, 45%)', 'hsl(38, 92%, 50%)',
@@ -47,9 +50,41 @@ const BatchCalcPage: React.FC = () => {
     value: parseFloat(i.scaledAmount.toFixed(2)),
   }));
 
+  const handleExport = () => {
+    if (!selectedFormula || scaledIngredients.length === 0) return;
+    const rows = scaledIngredients.map(item => ({
+      '編號': item.materialCode,
+      '原料名稱': item.name,
+      '配方量 (g)': parseFloat(item.originalAmount.toFixed(2)),
+      '佔比 (%)': item.percentage,
+      '需求量 (g)': parseFloat(item.scaledAmount.toFixed(2)),
+      '成本': parseFloat((item.scaledAmount * item.pricePerGram).toFixed(2)),
+    }));
+    rows.push({
+      '編號': '',
+      '原料名稱': '合計',
+      '配方量 (g)': parseFloat(formulaTotal.toFixed(2)),
+      '佔比 (%)': 100,
+      '需求量 (g)': parseFloat(targetWeight.toFixed(2)),
+      '成本': parseFloat(totalCost.toFixed(2)),
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '核配計算');
+    XLSX.writeFile(wb, `核配_${selectedFormula.code}_${selectedFormula.name}.xlsx`);
+    toast.success('已匯出 Excel');
+  };
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">核配</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">核配</h1>
+        {selectedFormula && scaledIngredients.length > 0 && (
+          <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5">
+            <Download className="h-4 w-4" /> 匯出 Excel
+          </Button>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">

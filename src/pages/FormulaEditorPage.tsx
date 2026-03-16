@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppContext } from '@/contexts/AppContext';
-import { FormulaIngredient, ValidationResult } from '@/lib/types';
+import { FormulaIngredient, ValidationResult, NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -9,14 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X, Percent, Weight } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X, Percent, Weight, Download, Info } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 
 const PIE_COLORS = [
   'hsl(210, 90%, 50%)', 'hsl(170, 60%, 45%)', 'hsl(38, 92%, 50%)',
@@ -41,9 +42,10 @@ interface SortableItemProps {
   onRemove: (idx: number) => void;
   usePercent: boolean;
   totalWeight: number;
+  nutrientPopover: React.ReactNode;
 }
 
-const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight }) => {
+const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight, nutrientPopover }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fi.ingredientId + '-' + index });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -60,7 +62,10 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
         <GripVertical className="h-4 w-4" />
       </button>
       <span className="text-xs font-mono text-muted-foreground w-16 shrink-0">{materialCode}</span>
-      <span className="text-sm font-medium flex-1 min-w-0 truncate">{ingredientName}</span>
+      <span className="text-sm font-medium flex-1 min-w-0 truncate flex items-center gap-1">
+        {ingredientName}
+        {nutrientPopover}
+      </span>
       <div className="flex items-center gap-2 shrink-0">
         {usePercent ? (
           <>
@@ -263,16 +268,14 @@ const FormulaEditorPage: React.FC = () => {
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   // Validation: convert totals to per-1000kcal for channel limit comparison
-  // Formula: per_1000kcal = total_nutrient / totalCalories * 1000
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
-    if (totalCalories <= 0) return []; // can't validate without calorie data
+    if (totalCalories <= 0) return [];
     return nutrients
       .filter(n => selectedChannel.limits[n.id])
       .map(n => {
         const limit = selectedChannel.limits[n.id];
         const rawValue = totals[n.id] || 0;
-        // Convert to per 1000 kcal ME
         const value = (rawValue / totalCalories) * 1000;
         let passed = true;
         if (limit.type === 'min' && limit.min !== undefined) passed = value >= limit.min;
@@ -298,6 +301,83 @@ const FormulaEditorPage: React.FC = () => {
     toast.success('配方已儲存');
   };
 
+  const handleExport = () => {
+    if (!selectedFormula || formulaIngredients.length === 0) return;
+    // Sheet 1: ingredient composition
+    const ingRows = formulaIngredients.map(fi => {
+      const ing = ingredients.find(i => i.id === fi.ingredientId);
+      return {
+        '編號': ing?.materialCode || '',
+        '原料名稱': ing?.name || '未知',
+        '用量 (g)': fi.amount,
+        '佔比 (%)': totalWeight > 0 ? parseFloat(((fi.amount / totalWeight) * 100).toFixed(2)) : 0,
+      };
+    });
+    ingRows.push({
+      '編號': '',
+      '原料名稱': '合計',
+      '用量 (g)': parseFloat(totalWeight.toFixed(2)),
+      '佔比 (%)': 100,
+    });
+
+    // Sheet 2: nutrient totals
+    const nutRows = nutrients.map(n => ({
+      '營養素': n.name,
+      '單位': n.unit,
+      '含量': totals[n.id] !== undefined ? parseFloat(totals[n.id].toFixed(4)) : 'ND',
+    }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ingRows), '配方原料');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(nutRows), '營養成分');
+    XLSX.writeFile(wb, `配方組成_${selectedFormula.code}_${selectedFormula.name}.xlsx`);
+    toast.success('已匯出 Excel');
+  };
+
+  // Build nutrient popover for an ingredient
+  const renderNutrientPopover = (ingredientId: string) => {
+    const ing = ingredients.find(i => i.id === ingredientId);
+    if (!ing) return null;
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button className="text-muted-foreground hover:text-primary p-0.5 shrink-0" title="檢視營養成分">
+            <Info className="h-3.5 w-3.5" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 max-h-80 overflow-y-auto scrollbar-thin p-3" side="right" align="start">
+          <div className="text-sm font-medium mb-2">{ing.name} — 每 100g 營養成分</div>
+          {ing.caloriesPer100g !== undefined && ing.caloriesPer100g > 0 && (
+            <div className="flex justify-between text-xs py-0.5 border-b mb-1">
+              <span className="font-medium">熱量</span>
+              <span className="font-mono">{ing.caloriesPer100g} kcal</span>
+            </div>
+          )}
+          {Object.entries(NUTRIENT_CATEGORY_LABELS).map(([cat, label]) => {
+            const catNutrients = nutrients.filter(n => n.category === cat);
+            const hasValues = catNutrients.some(n => ing.nutrients[n.id] !== undefined && ing.nutrients[n.id] !== 'ND');
+            if (!hasValues) return null;
+            return (
+              <div key={cat} className="mb-2">
+                <div className="text-xs font-medium text-muted-foreground mb-0.5">{label}</div>
+                {catNutrients.map(n => {
+                  const val = ing.nutrients[n.id];
+                  if (val === undefined || val === 'ND') return null;
+                  return (
+                    <div key={n.id} className="flex justify-between text-xs py-0.5">
+                      <span>{n.name}</span>
+                      <span className="font-mono">{typeof val === 'number' ? val : val} {n.unit}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -315,6 +395,9 @@ const FormulaEditorPage: React.FC = () => {
               {channels.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={!selectedFormula || formulaIngredients.length === 0} className="gap-1.5">
+            <Download className="h-4 w-4" /> 匯出
+          </Button>
           <Button onClick={handleSave} disabled={!selectedFormula} className="gap-1.5">
             <Save className="h-4 w-4" /> 儲存
           </Button>
@@ -441,6 +524,7 @@ const FormulaEditorPage: React.FC = () => {
                         onRemove={removeIngredient}
                         usePercent={usePercent}
                         totalWeight={totalWeight}
+                        nutrientPopover={renderNutrientPopover(fi.ingredientId)}
                       />
                     );
                   })}
