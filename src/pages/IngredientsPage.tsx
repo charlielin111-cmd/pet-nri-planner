@@ -17,7 +17,7 @@ const IngredientsPage: React.FC = () => {
   const { ingredients, nutrients, saveIngredient, deleteIngredient } = useAppContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
-  const [form, setForm] = useState({ materialCode: '', name: '', pricePerGram: 0 });
+  const [form, setForm] = useState({ materialCode: '', name: '', pricePerGram: 0, caloriesPer100g: 0 });
   const [nutrientValues, setNutrientValues] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(['materialCode', 'name', 'pricePerGram']));
@@ -38,14 +38,14 @@ const IngredientsPage: React.FC = () => {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ materialCode: '', name: '', pricePerGram: 0 });
+    setForm({ materialCode: '', name: '', pricePerGram: 0, caloriesPer100g: 0 });
     setNutrientValues({});
     setDialogOpen(true);
   };
 
   const openEdit = (ing: Ingredient) => {
     setEditing(ing);
-    setForm({ materialCode: ing.materialCode, name: ing.name, pricePerGram: ing.pricePerGram });
+    setForm({ materialCode: ing.materialCode, name: ing.name, pricePerGram: ing.pricePerGram, caloriesPer100g: ing.caloriesPer100g || 0 });
     const nv: Record<string, string> = {};
     nutrients.forEach(n => {
       const val = ing.nutrients[n.id];
@@ -68,6 +68,7 @@ const IngredientsPage: React.FC = () => {
       materialCode: form.materialCode.trim(),
       name: form.name.trim(),
       pricePerGram: form.pricePerGram,
+      caloriesPer100g: form.caloriesPer100g || 0,
       nutrients: parsedNutrients,
       updatedAt: new Date().toISOString(),
     };
@@ -82,6 +83,7 @@ const IngredientsPage: React.FC = () => {
         物料編號: ing.materialCode,
         品名: ing.name,
         每公克價格: ing.pricePerGram,
+        '每100g熱量(kcal)': ing.caloriesPer100g || 0,
       };
       nutrients.forEach(n => {
         row[n.name] = ing.nutrients[n.id] === 'ND' ? 'ND' : ing.nutrients[n.id] ?? 'ND';
@@ -219,7 +221,14 @@ const IngredientsPage: React.FC = () => {
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">營養成分（每 1000 kcal ME），輸入 ND 代表未設定</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-3">
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">每 100g 熱量 (kcal)</label>
+                <Input type="number" value={form.caloriesPer100g} onChange={e => setForm(p => ({ ...p, caloriesPer100g: Number(e.target.value) || 0 }))} className="w-40" min={0} step={0.01} />
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">營養成分（每 100g 含量），輸入 ND 代表未設定</p>
 
             {categories.map(([cat, label]) => {
               const catNutrients = nutrients.filter(n => n.category === cat);

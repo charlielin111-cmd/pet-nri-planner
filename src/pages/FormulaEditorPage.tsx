@@ -66,19 +66,19 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
           <>
             <Slider
               value={[pct]}
-              onValueChange={([v]) => onPercentChange(index, v)}
+              onValueChange={([v]) => onPercentChange(index, parseFloat(v.toFixed(2)))}
               max={100}
-              step={0.1}
+              step={0.01}
               className="w-24"
             />
             <Input
               type="number"
-              value={parseFloat(pct.toFixed(1))}
+              value={parseFloat(pct.toFixed(2))}
               onChange={e => onPercentChange(index, Number(e.target.value) || 0)}
               className="w-20 text-right text-sm h-8"
               min={0}
               max={100}
-              step={0.1}
+              step={0.01}
             />
             <span className="text-xs text-muted-foreground">%</span>
           </>
@@ -183,6 +183,7 @@ const FormulaEditorPage: React.FC = () => {
     }
   };
 
+  // Totals: nutrients are per 100g, so contribution = (nutrient_per_100g / 100) * amount_g
   const totals = useMemo(() => {
     const result: Record<string, number> = {};
     formulaIngredients.forEach(fi => {
@@ -191,12 +192,21 @@ const FormulaEditorPage: React.FC = () => {
       nutrients.forEach(n => {
         const val = ing.nutrients[n.id];
         if (val !== 'ND' && typeof val === 'number') {
-          result[n.id] = (result[n.id] || 0) + val * fi.amount;
+          result[n.id] = (result[n.id] || 0) + (val / 100) * fi.amount;
         }
       });
     });
     return result;
   }, [formulaIngredients, ingredients, nutrients]);
+
+  // Total calories of formula (sum of each ingredient's kcal contribution)
+  const totalCalories = useMemo(() => {
+    return formulaIngredients.reduce((sum, fi) => {
+      const ing = ingredients.find(i => i.id === fi.ingredientId);
+      if (!ing) return sum;
+      return sum + ((ing.caloriesPer100g || 0) / 100) * fi.amount;
+    }, 0);
+  }, [formulaIngredients, ingredients]);
 
   const calcium = totals['calcium'] || 0;
   const phosphorus = totals['phosphorus'] || 0;
@@ -252,13 +262,18 @@ const FormulaEditorPage: React.FC = () => {
   const totalWeight = ingredientPieData.reduce((s, d) => s + d.value, 0);
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
+  // Validation: convert totals to per-1000kcal for channel limit comparison
+  // Formula: per_1000kcal = total_nutrient / totalCalories * 1000
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
+    if (totalCalories <= 0) return []; // can't validate without calorie data
     return nutrients
       .filter(n => selectedChannel.limits[n.id])
       .map(n => {
         const limit = selectedChannel.limits[n.id];
-        const value = totals[n.id] || 0;
+        const rawValue = totals[n.id] || 0;
+        // Convert to per 1000 kcal ME
+        const value = (rawValue / totalCalories) * 1000;
         let passed = true;
         if (limit.type === 'min' && limit.min !== undefined) passed = value >= limit.min;
         else if (limit.type === 'max' && limit.max !== undefined) passed = value <= limit.max;
@@ -268,7 +283,7 @@ const FormulaEditorPage: React.FC = () => {
         }
         return { nutrientId: n.id, nutrientName: n.name, value, unit: n.unit, limit, passed };
       });
-  }, [selectedChannel, nutrients, totals]);
+  }, [selectedChannel, nutrients, totals, totalCalories]);
 
   const failures = validationResults.filter(r => !r.passed);
 
