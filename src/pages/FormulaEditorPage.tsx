@@ -183,6 +183,7 @@ const FormulaEditorPage: React.FC = () => {
     }
   };
 
+  // Totals: nutrients are per 100g, so contribution = (nutrient_per_100g / 100) * amount_g
   const totals = useMemo(() => {
     const result: Record<string, number> = {};
     formulaIngredients.forEach(fi => {
@@ -191,12 +192,21 @@ const FormulaEditorPage: React.FC = () => {
       nutrients.forEach(n => {
         const val = ing.nutrients[n.id];
         if (val !== 'ND' && typeof val === 'number') {
-          result[n.id] = (result[n.id] || 0) + val * fi.amount;
+          result[n.id] = (result[n.id] || 0) + (val / 100) * fi.amount;
         }
       });
     });
     return result;
   }, [formulaIngredients, ingredients, nutrients]);
+
+  // Total calories of formula (sum of each ingredient's kcal contribution)
+  const totalCalories = useMemo(() => {
+    return formulaIngredients.reduce((sum, fi) => {
+      const ing = ingredients.find(i => i.id === fi.ingredientId);
+      if (!ing) return sum;
+      return sum + ((ing.caloriesPer100g || 0) / 100) * fi.amount;
+    }, 0);
+  }, [formulaIngredients, ingredients]);
 
   const calcium = totals['calcium'] || 0;
   const phosphorus = totals['phosphorus'] || 0;
