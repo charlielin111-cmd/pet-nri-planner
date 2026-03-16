@@ -83,6 +83,7 @@ const IngredientsPage: React.FC = () => {
         物料編號: ing.materialCode,
         品名: ing.name,
         每公克價格: ing.pricePerGram,
+        '每100g熱量(kcal)': ing.caloriesPer100g || 0,
       };
       nutrients.forEach(n => {
         row[n.name] = ing.nutrients[n.id] === 'ND' ? 'ND' : ing.nutrients[n.id] ?? 'ND';
