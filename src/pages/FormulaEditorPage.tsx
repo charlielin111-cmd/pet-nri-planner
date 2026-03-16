@@ -262,13 +262,18 @@ const FormulaEditorPage: React.FC = () => {
   const totalWeight = ingredientPieData.reduce((s, d) => s + d.value, 0);
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
+  // Validation: convert totals to per-1000kcal for channel limit comparison
+  // Formula: per_1000kcal = total_nutrient / totalCalories * 1000
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
+    if (totalCalories <= 0) return []; // can't validate without calorie data
     return nutrients
       .filter(n => selectedChannel.limits[n.id])
       .map(n => {
         const limit = selectedChannel.limits[n.id];
-        const value = totals[n.id] || 0;
+        const rawValue = totals[n.id] || 0;
+        // Convert to per 1000 kcal ME
+        const value = (rawValue / totalCalories) * 1000;
         let passed = true;
         if (limit.type === 'min' && limit.min !== undefined) passed = value >= limit.min;
         else if (limit.type === 'max' && limit.max !== undefined) passed = value <= limit.max;
@@ -278,7 +283,7 @@ const FormulaEditorPage: React.FC = () => {
         }
         return { nutrientId: n.id, nutrientName: n.name, value, unit: n.unit, limit, passed };
       });
-  }, [selectedChannel, nutrients, totals]);
+  }, [selectedChannel, nutrients, totals, totalCalories]);
 
   const failures = validationResults.filter(r => !r.passed);
 
