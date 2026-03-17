@@ -311,7 +311,7 @@ const FormulaEditorPage: React.FC = () => {
         '編號': ing?.materialCode || '',
         '原料名稱': ing?.name || '未知',
         '用量 (g)': fi.amount,
-        '佔比 (%)': totalWeight > 0 ? parseFloat(((fi.amount / totalWeight) * 100).toFixed(2)) : 0,
+        '佔比 (%)': (() => { const base = selectedFormula?.servingSize || totalWeight; return base > 0 ? parseFloat(((fi.amount / base) * 100).toFixed(2)) : 0; })(),
       };
     });
     ingRows.push({
