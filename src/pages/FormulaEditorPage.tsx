@@ -41,8 +41,9 @@ interface SortableItemProps {
   onPercentChange: (idx: number, pct: number) => void;
   onRemove: (idx: number) => void;
   usePercent: boolean;
-  totalWeight: number;
-  nutrientPopover: React.ReactNode;
+   totalWeight: number;
+   servingSize: number;
+   nutrientPopover: React.ReactNode;
 }
 
 const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight, nutrientPopover }) => {
