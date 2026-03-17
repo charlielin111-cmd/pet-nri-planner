@@ -73,6 +73,19 @@ const FormulasPage: React.FC = () => {
     toast.success('配方已刪除');
   };
 
+  const handleCopy = async (f: Formula) => {
+    const newFormula: Formula = {
+      ...f,
+      id: crypto.randomUUID(),
+      code: f.code + '_copy',
+      name: f.name + ' (副本)',
+      ingredients: f.ingredients.map(fi => ({ ...fi })),
+      updatedAt: new Date().toISOString(),
+    };
+    await saveFormula(newFormula);
+    toast.success('配方已複製');
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">配方管理</h1>
