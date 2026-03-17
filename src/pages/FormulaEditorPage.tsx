@@ -512,13 +512,21 @@ const FormulaEditorPage: React.FC = () => {
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {/* Total summary bar */}
                 <div className="flex items-center justify-between px-3 py-2 mb-2 rounded-md bg-muted/60 border">
-                  <span className="text-sm font-semibold text-foreground">成分加總</span>
+                  <span className="text-sm font-semibold text-foreground">
+                    成分加總 {selectedFormula?.servingSize ? <span className="text-xs font-normal text-muted-foreground">(每份規格: {selectedFormula.servingSize}g)</span> : null}
+                  </span>
                   <div className="flex items-center gap-3 text-sm font-mono font-semibold">
                     <span>{parseFloat(totalWeight.toFixed(2))} g</span>
                     <span className="text-muted-foreground">/</span>
-                    <span className={totalWeight > 0 ? (Math.abs(formulaIngredients.reduce((s, fi) => s + (fi.amount / totalWeight) * 100, 0) - 100) < 0.01 ? 'text-foreground' : 'text-amber-600') : 'text-muted-foreground'}>
-                      {totalWeight > 0 ? parseFloat(formulaIngredients.reduce((s, fi) => s + (fi.amount / totalWeight) * 100, 0).toFixed(2)) : 0} %
-                    </span>
+                    {(() => {
+                      const base = selectedFormula?.servingSize || totalWeight;
+                      const totalPct = base > 0 ? parseFloat((totalWeight / base * 100).toFixed(2)) : 0;
+                      return (
+                        <span className={base > 0 ? (Math.abs(totalPct - 100) < 0.01 ? 'text-foreground' : 'text-amber-600') : 'text-muted-foreground'}>
+                          {totalPct} %
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <SortableContext items={formulaIngredients.map((fi, i) => fi.ingredientId + '-' + i)} strategy={verticalListSortingStrategy}>
