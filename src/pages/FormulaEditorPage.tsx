@@ -41,11 +41,12 @@ interface SortableItemProps {
   onPercentChange: (idx: number, pct: number) => void;
   onRemove: (idx: number) => void;
   usePercent: boolean;
-  totalWeight: number;
-  nutrientPopover: React.ReactNode;
+   totalWeight: number;
+   servingSize: number;
+   nutrientPopover: React.ReactNode;
 }
 
-const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight, nutrientPopover }) => {
+const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight, servingSize, nutrientPopover }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fi.ingredientId + '-' + index });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -54,7 +55,7 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
     zIndex: isDragging ? 50 : undefined,
   };
 
-  const pct = totalWeight > 0 ? (fi.amount / totalWeight) * 100 : 0;
+  const pct = servingSize > 0 ? (fi.amount / servingSize) * 100 : 0;
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-2 px-2 border-b bg-card rounded-md mb-1">
@@ -158,13 +159,13 @@ const FormulaEditorPage: React.FC = () => {
   };
 
   const updatePercent = (idx: number, newPct: number) => {
-    const currentTotal = formulaIngredients.reduce((s, fi) => s + fi.amount, 0);
-    if (currentTotal <= 0) return;
-    const clampedPct = Math.max(0, Math.min(100, newPct));
-    const newAmount = (clampedPct / 100) * currentTotal;
+    const baseWeight = selectedFormula?.servingSize || formulaIngredients.reduce((s, fi) => s + fi.amount, 0);
+    if (baseWeight <= 0) return;
+    const clampedPct = Math.max(0, newPct);
+    const newAmount = (clampedPct / 100) * baseWeight;
     const oldAmount = formulaIngredients[idx].amount;
     const diff = newAmount - oldAmount;
-    const othersTotal = currentTotal - oldAmount;
+    const othersTotal = formulaIngredients.reduce((s, fi) => s + fi.amount, 0) - oldAmount;
 
     setFormulaIngredients(prev => prev.map((fi, i) => {
       if (i === idx) return { ...fi, amount: parseFloat(newAmount.toFixed(2)) };
@@ -310,7 +311,7 @@ const FormulaEditorPage: React.FC = () => {
         '編號': ing?.materialCode || '',
         '原料名稱': ing?.name || '未知',
         '用量 (g)': fi.amount,
-        '佔比 (%)': totalWeight > 0 ? parseFloat(((fi.amount / totalWeight) * 100).toFixed(2)) : 0,
+        '佔比 (%)': (() => { const base = selectedFormula?.servingSize || totalWeight; return base > 0 ? parseFloat(((fi.amount / base) * 100).toFixed(2)) : 0; })(),
       };
     });
     ingRows.push({
@@ -422,7 +423,7 @@ const FormulaEditorPage: React.FC = () => {
                   <Pie data={ingredientPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={30}>
                     {ingredientPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(1)}g (${totalWeight > 0 ? ((value / totalWeight) * 100).toFixed(1) : 0}%)`, name]} />
+                  <Tooltip formatter={(value: number, name: string) => { const base = selectedFormula?.servingSize || totalWeight; return [`${value.toFixed(1)}g (${base > 0 ? ((value / base) * 100).toFixed(1) : 0}%)`, name]; }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -511,13 +512,21 @@ const FormulaEditorPage: React.FC = () => {
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 {/* Total summary bar */}
                 <div className="flex items-center justify-between px-3 py-2 mb-2 rounded-md bg-muted/60 border">
-                  <span className="text-sm font-semibold text-foreground">成分加總</span>
+                  <span className="text-sm font-semibold text-foreground">
+                    成分加總 {selectedFormula?.servingSize ? <span className="text-xs font-normal text-muted-foreground">(每份規格: {selectedFormula.servingSize}g)</span> : null}
+                  </span>
                   <div className="flex items-center gap-3 text-sm font-mono font-semibold">
                     <span>{parseFloat(totalWeight.toFixed(2))} g</span>
                     <span className="text-muted-foreground">/</span>
-                    <span className={totalWeight > 0 ? (Math.abs(formulaIngredients.reduce((s, fi) => s + (fi.amount / totalWeight) * 100, 0) - 100) < 0.01 ? 'text-foreground' : 'text-amber-600') : 'text-muted-foreground'}>
-                      {totalWeight > 0 ? parseFloat(formulaIngredients.reduce((s, fi) => s + (fi.amount / totalWeight) * 100, 0).toFixed(2)) : 0} %
-                    </span>
+                    {(() => {
+                      const base = selectedFormula?.servingSize || totalWeight;
+                      const totalPct = base > 0 ? parseFloat((totalWeight / base * 100).toFixed(2)) : 0;
+                      return (
+                        <span className={base > 0 ? (Math.abs(totalPct - 100) < 0.01 ? 'text-foreground' : 'text-amber-600') : 'text-muted-foreground'}>
+                          {totalPct} %
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <SortableContext items={formulaIngredients.map((fi, i) => fi.ingredientId + '-' + i)} strategy={verticalListSortingStrategy}>
@@ -535,6 +544,7 @@ const FormulaEditorPage: React.FC = () => {
                         onRemove={removeIngredient}
                         usePercent={usePercent}
                         totalWeight={totalWeight}
+                        servingSize={selectedFormula?.servingSize || totalWeight}
                         nutrientPopover={renderNutrientPopover(fi.ingredientId)}
                       />
                     );
