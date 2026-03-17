@@ -159,10 +159,10 @@ const FormulaEditorPage: React.FC = () => {
   };
 
   const updatePercent = (idx: number, newPct: number) => {
-    const currentTotal = formulaIngredients.reduce((s, fi) => s + fi.amount, 0);
-    if (currentTotal <= 0) return;
-    const clampedPct = Math.max(0, Math.min(100, newPct));
-    const newAmount = (clampedPct / 100) * currentTotal;
+    const baseWeight = selectedFormula?.servingSize || formulaIngredients.reduce((s, fi) => s + fi.amount, 0);
+    if (baseWeight <= 0) return;
+    const clampedPct = Math.max(0, newPct);
+    const newAmount = (clampedPct / 100) * baseWeight;
     const oldAmount = formulaIngredients[idx].amount;
     const diff = newAmount - oldAmount;
     const othersTotal = currentTotal - oldAmount;
