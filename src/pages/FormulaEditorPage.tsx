@@ -423,7 +423,7 @@ const FormulaEditorPage: React.FC = () => {
                   <Pie data={ingredientPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={30}>
                     {ingredientPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(1)}g (${totalWeight > 0 ? ((value / totalWeight) * 100).toFixed(1) : 0}%)`, name]} />
+                  <Tooltip formatter={(value: number, name: string) => { const base = selectedFormula?.servingSize || totalWeight; return [`${value.toFixed(1)}g (${base > 0 ? ((value / base) * 100).toFixed(1) : 0}%)`, name]; }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
