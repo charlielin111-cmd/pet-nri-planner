@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { Plus, Trash2, Download, Save } from 'lucide-react';
+import { Plus, Trash2, Download, Save, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -71,6 +71,19 @@ const FormulasPage: React.FC = () => {
   const handleDelete = async (id: string) => {
     await deleteFormula(id);
     toast.success('配方已刪除');
+  };
+
+  const handleCopy = async (f: Formula) => {
+    const newFormula: Formula = {
+      ...f,
+      id: crypto.randomUUID(),
+      code: f.code + '_copy',
+      name: f.name + ' (副本)',
+      ingredients: f.ingredients.map(fi => ({ ...fi })),
+      updatedAt: new Date().toISOString(),
+    };
+    await saveFormula(newFormula);
+    toast.success('配方已複製');
   };
 
   return (
@@ -145,6 +158,9 @@ const FormulasPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleCopy(f)} title="複製配方">
+                          <Copy className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleExport(f)} title="匯出 Excel">
                           <Download className="h-4 w-4" />
                         </Button>
