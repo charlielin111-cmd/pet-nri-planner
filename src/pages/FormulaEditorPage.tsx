@@ -522,7 +522,7 @@ const FormulaEditorPage: React.FC = () => {
                       const base = selectedFormula?.servingSize || totalWeight;
                       const totalPct = base > 0 ? parseFloat((totalWeight / base * 100).toFixed(2)) : 0;
                       return (
-                        <span className={base > 0 ? (Math.abs(totalPct - 100) < 0.01 ? 'text-foreground' : 'text-amber-600') : 'text-muted-foreground'}>
+                        <span className={base > 0 ? (Math.abs(totalPct - 100) < 0.01 ? 'text-foreground' : totalPct > 100 ? 'text-destructive font-bold' : 'text-amber-600') : 'text-muted-foreground'}>
                           {totalPct} %
                         </span>
                       );

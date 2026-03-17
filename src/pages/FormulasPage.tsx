@@ -145,6 +145,9 @@ const FormulasPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleCopy(f)} title="複製配方">
+                          <Copy className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleExport(f)} title="匯出 Excel">
                           <Download className="h-4 w-4" />
                         </Button>
