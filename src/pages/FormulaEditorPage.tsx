@@ -55,7 +55,7 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
     zIndex: isDragging ? 50 : undefined,
   };
 
-  const pct = totalWeight > 0 ? (fi.amount / totalWeight) * 100 : 0;
+  const pct = servingSize > 0 ? (fi.amount / servingSize) * 100 : 0;
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-2 px-2 border-b bg-card rounded-md mb-1">
