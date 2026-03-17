@@ -165,7 +165,7 @@ const FormulaEditorPage: React.FC = () => {
     const newAmount = (clampedPct / 100) * baseWeight;
     const oldAmount = formulaIngredients[idx].amount;
     const diff = newAmount - oldAmount;
-    const othersTotal = currentTotal - oldAmount;
+    const othersTotal = formulaIngredients.reduce((s, fi) => s + fi.amount, 0) - oldAmount;
 
     setFormulaIngredients(prev => prev.map((fi, i) => {
       if (i === idx) return { ...fi, amount: parseFloat(newAmount.toFixed(2)) };
