@@ -536,6 +536,7 @@ const FormulaEditorPage: React.FC = () => {
                         onRemove={removeIngredient}
                         usePercent={usePercent}
                         totalWeight={totalWeight}
+                        servingSize={selectedFormula?.servingSize || totalWeight}
                         nutrientPopover={renderNutrientPopover(fi.ingredientId)}
                       />
                     );
