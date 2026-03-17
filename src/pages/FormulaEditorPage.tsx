@@ -46,7 +46,7 @@ interface SortableItemProps {
    nutrientPopover: React.ReactNode;
 }
 
-const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight, nutrientPopover }) => {
+const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredientName, materialCode, onAmountChange, onPercentChange, onRemove, usePercent, totalWeight, servingSize, nutrientPopover }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fi.ingredientId + '-' + index });
   const style = {
     transform: CSS.Transform.toString(transform),
