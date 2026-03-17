@@ -509,6 +509,17 @@ const FormulaEditorPage: React.FC = () => {
               <p className="text-sm text-muted-foreground py-4 text-center">搜尋並選取原料加入配方</p>
             ) : (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                {/* Total summary bar */}
+                <div className="flex items-center justify-between px-3 py-2 mb-2 rounded-md bg-muted/60 border">
+                  <span className="text-sm font-semibold text-foreground">成分加總</span>
+                  <div className="flex items-center gap-3 text-sm font-mono font-semibold">
+                    <span>{parseFloat(totalWeight.toFixed(2))} g</span>
+                    <span className="text-muted-foreground">/</span>
+                    <span className={totalWeight > 0 ? (Math.abs(formulaIngredients.reduce((s, fi) => s + (fi.amount / totalWeight) * 100, 0) - 100) < 0.01 ? 'text-foreground' : 'text-amber-600') : 'text-muted-foreground'}>
+                      {totalWeight > 0 ? parseFloat(formulaIngredients.reduce((s, fi) => s + (fi.amount / totalWeight) * 100, 0).toFixed(2)) : 0} %
+                    </span>
+                  </div>
+                </div>
                 <SortableContext items={formulaIngredients.map((fi, i) => fi.ingredientId + '-' + i)} strategy={verticalListSortingStrategy}>
                   {formulaIngredients.map((fi, idx) => {
                     const ing = ingredients.find(i => i.id === fi.ingredientId);
