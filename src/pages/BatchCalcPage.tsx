@@ -135,15 +135,15 @@ const BatchCalcPage: React.FC = () => {
                   <tbody>
                     {scaledIngredients.map((item, idx) => (
                       <tr key={idx} className="border-b last:border-0">
-                        <td className="py-2 pr-2 font-mono text-xs text-muted-foreground">{item.materialCode}</td>
+                       <td className="py-2 pr-2 font-mono text-xs text-muted-foreground">{item.materialCode}</td>
                         <td className="py-2 flex items-center gap-1.5">
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
                           {item.name}
                         </td>
-                        <td className="text-right py-2 font-mono text-muted-foreground">{item.originalAmount.toFixed(2)}</td>
-                        <td className="text-right py-2 font-mono text-muted-foreground">{item.percentage.toFixed(2)}%</td>
-                        <td className="text-right py-2 font-mono font-semibold">{parseFloat(item.scaledAmount.toFixed(2))}</td>
-                        <td className="text-right py-2 font-mono text-muted-foreground">${(item.scaledAmount * item.pricePerGram).toFixed(2)}</td>
+                        <td className="text-right py-2 font-mono text-muted-foreground">{item.originalAmount.toFixed(3)}</td>
+                        <td className="text-right py-2 font-mono text-muted-foreground">{item.percentage.toFixed(3)}%</td>
+                        <td className="text-right py-2 font-mono font-semibold">{parseFloat(item.scaledAmount.toFixed(3))}</td>
+                        <td className="text-right py-2 font-mono text-muted-foreground">${(item.scaledAmount * item.pricePerGram).toFixed(3)}</td>
                       </tr>
                     ))}
                   </tbody>
