@@ -72,19 +72,19 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
           <>
             <Slider
               value={[pct]}
-              onValueChange={([v]) => onPercentChange(index, parseFloat(v.toFixed(2)))}
+              onValueChange={([v]) => onPercentChange(index, parseFloat(v.toFixed(3)))}
               max={100}
-              step={0.01}
+              step={0.001}
               className="w-24"
             />
             <Input
               type="number"
-              value={parseFloat(pct.toFixed(2))}
+              value={parseFloat(pct.toFixed(3))}
               onChange={e => onPercentChange(index, Number(e.target.value) || 0)}
-              className="w-20 text-right text-sm h-8"
+              className="w-24 text-right text-sm h-8"
               min={0}
               max={100}
-              step={0.01}
+              step={0.001}
             />
             <span className="text-xs text-muted-foreground">%</span>
           </>
@@ -92,17 +92,18 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
           <>
             <Slider
               value={[fi.amount]}
-              onValueChange={([v]) => onAmountChange(index, v)}
+              onValueChange={([v]) => onAmountChange(index, parseFloat(v.toFixed(3)))}
               max={500}
-              step={1}
+              step={0.001}
               className="w-24"
             />
             <Input
               type="number"
               value={fi.amount}
               onChange={e => onAmountChange(index, Number(e.target.value) || 0)}
-              className="w-20 text-right text-sm h-8"
+              className="w-24 text-right text-sm h-8"
               min={0}
+              step={0.001}
             />
             <span className="text-xs text-muted-foreground">g</span>
           </>
@@ -164,7 +165,7 @@ const FormulaEditorPage: React.FC = () => {
     const clampedPct = Math.max(0, newPct);
     const newAmount = (clampedPct / 100) * baseWeight;
     setFormulaIngredients(prev => prev.map((fi, i) =>
-      i === idx ? { ...fi, amount: parseFloat(newAmount.toFixed(2)) } : fi
+      i === idx ? { ...fi, amount: parseFloat(newAmount.toFixed(3)) } : fi
     ));
   };
 
@@ -304,13 +305,13 @@ const FormulaEditorPage: React.FC = () => {
         '編號': ing?.materialCode || '',
         '原料名稱': ing?.name || '未知',
         '用量 (g)': fi.amount,
-        '佔比 (%)': (() => { const base = selectedFormula?.servingSize || totalWeight; return base > 0 ? parseFloat(((fi.amount / base) * 100).toFixed(2)) : 0; })(),
+        '佔比 (%)': (() => { const base = selectedFormula?.servingSize || totalWeight; return base > 0 ? parseFloat(((fi.amount / base) * 100).toFixed(3)) : 0; })(),
       };
     });
     ingRows.push({
       '編號': '',
       '原料名稱': '合計',
-      '用量 (g)': parseFloat(totalWeight.toFixed(2)),
+      '用量 (g)': parseFloat(totalWeight.toFixed(3)),
       '佔比 (%)': 100,
     });
 
@@ -416,7 +417,7 @@ const FormulaEditorPage: React.FC = () => {
                   <Pie data={ingredientPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={30}>
                     {ingredientPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(value: number, name: string) => { const base = selectedFormula?.servingSize || totalWeight; return [`${value.toFixed(1)}g (${base > 0 ? ((value / base) * 100).toFixed(1) : 0}%)`, name]; }} />
+                  <Tooltip formatter={(value: number, name: string) => { const base = selectedFormula?.servingSize || totalWeight; return [`${value.toFixed(3)}g (${base > 0 ? ((value / base) * 100).toFixed(3) : 0}%)`, name]; }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -509,11 +510,11 @@ const FormulaEditorPage: React.FC = () => {
                     成分加總 {selectedFormula?.servingSize ? <span className="text-xs font-normal text-muted-foreground">(每份規格: {selectedFormula.servingSize}g)</span> : null}
                   </span>
                   <div className="flex items-center gap-3 text-sm font-mono font-semibold">
-                    <span>{parseFloat(totalWeight.toFixed(2))} g</span>
+                    <span>{parseFloat(totalWeight.toFixed(3))} g</span>
                     <span className="text-muted-foreground">/</span>
                     {(() => {
                       const base = selectedFormula?.servingSize || totalWeight;
-                      const totalPct = base > 0 ? parseFloat((totalWeight / base * 100).toFixed(2)) : 0;
+                      const totalPct = base > 0 ? parseFloat((totalWeight / base * 100).toFixed(3)) : 0;
                       return (
                         <span className={base > 0 ? (Math.abs(totalPct - 100) < 0.01 ? 'text-foreground' : totalPct > 100 ? 'text-destructive font-bold' : 'text-amber-600') : 'text-muted-foreground'}>
                           {totalPct} %

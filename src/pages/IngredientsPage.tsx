@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Ingredient } from '@/lib/types';
+import { Ingredient, PriceUnit } from '@/lib/types';
 import { NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,11 +14,19 @@ import { Plus, Trash2, Pencil, ChevronDown, Search, Settings2, Save, Download } 
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
+const PRICE_UNIT_LABELS: Record<PriceUnit, string> = {
+  per_gram: '每公克',
+  per_kg: '每公斤',
+  custom: '其他',
+};
+
 const IngredientsPage: React.FC = () => {
   const { ingredients, nutrients, saveIngredient, deleteIngredient } = useAppContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Ingredient | null>(null);
-  const [form, setForm] = useState({ materialCode: '', name: '', pricePerGram: 0, caloriesPer100g: 0 });
+  const [form, setForm] = useState({ materialCode: '', name: '', priceRaw: 0, caloriesPer100g: 0 });
+  const [priceUnit, setPriceUnit] = useState<PriceUnit>('per_gram');
+  const [customUnitLabel, setCustomUnitLabel] = useState('');
   const [nutrientValues, setNutrientValues] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(['materialCode', 'name', 'pricePerGram']));
@@ -38,14 +47,24 @@ const IngredientsPage: React.FC = () => {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ materialCode: '', name: '', pricePerGram: 0, caloriesPer100g: 0 });
+    setForm({ materialCode: '', name: '', priceRaw: 0, caloriesPer100g: 0 });
+    setPriceUnit('per_gram');
+    setCustomUnitLabel('');
     setNutrientValues({});
     setDialogOpen(true);
   };
 
   const openEdit = (ing: Ingredient) => {
     setEditing(ing);
-    setForm({ materialCode: ing.materialCode, name: ing.name, pricePerGram: ing.pricePerGram, caloriesPer100g: ing.caloriesPer100g || 0 });
+    const unit = ing.priceUnit || 'per_gram';
+    setForm({
+      materialCode: ing.materialCode,
+      name: ing.name,
+      priceRaw: ing.priceRaw ?? ing.pricePerGram,
+      caloriesPer100g: ing.caloriesPer100g || 0,
+    });
+    setPriceUnit(unit);
+    setCustomUnitLabel(ing.priceUnitLabel || '');
     const nv: Record<string, string> = {};
     nutrients.forEach(n => {
       const val = ing.nutrients[n.id];
@@ -53,6 +72,11 @@ const IngredientsPage: React.FC = () => {
     });
     setNutrientValues(nv);
     setDialogOpen(true);
+  };
+
+  const computePricePerGram = (rawPrice: number, unit: PriceUnit): number => {
+    if (unit === 'per_kg') return rawPrice / 1000;
+    return rawPrice; // per_gram or custom (custom stores as-is, user manages)
   };
 
   const handleSave = async () => {
@@ -63,11 +87,16 @@ const IngredientsPage: React.FC = () => {
       else parsedNutrients[n.id] = parseFloat(raw) || 0;
     });
 
+    const pricePerGram = computePricePerGram(form.priceRaw, priceUnit);
+
     const item: Ingredient = {
       id: editing?.id || crypto.randomUUID(),
       materialCode: form.materialCode.trim(),
       name: form.name.trim(),
-      pricePerGram: form.pricePerGram,
+      pricePerGram,
+      priceUnit,
+      priceUnitLabel: priceUnit === 'custom' ? customUnitLabel.trim() : undefined,
+      priceRaw: form.priceRaw,
       caloriesPer100g: form.caloriesPer100g || 0,
       nutrients: parsedNutrients,
       updatedAt: new Date().toISOString(),
@@ -82,6 +111,8 @@ const IngredientsPage: React.FC = () => {
       const row: Record<string, any> = {
         物料編號: ing.materialCode,
         品名: ing.name,
+        價格單位: PRICE_UNIT_LABELS[ing.priceUnit || 'per_gram'],
+        價格: ing.priceRaw ?? ing.pricePerGram,
         每公克價格: ing.pricePerGram,
         '每100g熱量(kcal)': ing.caloriesPer100g || 0,
       };
@@ -109,6 +140,14 @@ const IngredientsPage: React.FC = () => {
   const visibleNutrientCols = nutrients.filter(n => visibleColumns.has(n.id));
   const categories = Object.entries(NUTRIENT_CATEGORY_LABELS);
 
+  const getPriceDisplay = (ing: Ingredient) => {
+    const unit = ing.priceUnit || 'per_gram';
+    const raw = ing.priceRaw ?? ing.pricePerGram;
+    if (unit === 'per_kg') return `$${raw}/kg`;
+    if (unit === 'custom') return `$${raw}/${ing.priceUnitLabel || '?'}`;
+    return `$${raw}/g`;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -121,7 +160,6 @@ const IngredientsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Search and column settings */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -162,7 +200,7 @@ const IngredientsPage: React.FC = () => {
               <tr className="border-b bg-muted/50">
                 <th className="text-left px-4 py-3 font-medium whitespace-nowrap">物料編號</th>
                 <th className="text-left px-4 py-3 font-medium whitespace-nowrap">品名</th>
-                <th className="text-right px-4 py-3 font-medium whitespace-nowrap">每公克價格</th>
+                <th className="text-right px-4 py-3 font-medium whitespace-nowrap">價格</th>
                 {visibleNutrientCols.map(n => (
                   <th key={n.id} className="text-right px-3 py-3 font-medium whitespace-nowrap text-xs">
                     {n.name}<br /><span className="text-muted-foreground font-normal">({n.unit})</span>
@@ -181,7 +219,7 @@ const IngredientsPage: React.FC = () => {
                 <tr key={ing.id} className="border-b hover:bg-muted/30">
                   <td className="px-4 py-3 font-mono">{ing.materialCode}</td>
                   <td className="px-4 py-3">{ing.name}</td>
-                  <td className="px-4 py-3 text-right">${ing.pricePerGram}</td>
+                  <td className="px-4 py-3 text-right">{getPriceDisplay(ing)}</td>
                   {visibleNutrientCols.map(n => (
                     <td key={n.id} className="px-3 py-3 text-right font-mono text-xs">
                       {ing.nutrients[n.id] === 'ND' ? <span className="text-muted-foreground">ND</span> : (ing.nutrients[n.id] ?? <span className="text-muted-foreground">ND</span>)}
@@ -206,7 +244,7 @@ const IngredientsPage: React.FC = () => {
             <DialogTitle>{editing ? '編輯原料' : '新增原料'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">物料編號</label>
                 <Input value={form.materialCode} onChange={e => setForm(p => ({ ...p, materialCode: e.target.value }))} />
@@ -215,17 +253,37 @@ const IngredientsPage: React.FC = () => {
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">品名</label>
                 <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
               </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 items-end">
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">每公克價格</label>
-                <Input type="number" value={form.pricePerGram} onChange={e => setForm(p => ({ ...p, pricePerGram: Number(e.target.value) || 0 }))} />
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">價格單位</label>
+                <Select value={priceUnit} onValueChange={(v: PriceUnit) => setPriceUnit(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="per_gram">每公克</SelectItem>
+                    <SelectItem value="per_kg">每公斤</SelectItem>
+                    <SelectItem value="custom">其他</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {priceUnit === 'custom' && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">自訂單位名稱</label>
+                  <Input value={customUnitLabel} onChange={e => setCustomUnitLabel(e.target.value)} placeholder="例：每包、每磅..." />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  價格 ({priceUnit === 'per_kg' ? '元/kg' : priceUnit === 'custom' ? `元/${customUnitLabel || '?'}` : '元/g'})
+                </label>
+                <Input type="number" value={form.priceRaw} onChange={e => setForm(p => ({ ...p, priceRaw: Number(e.target.value) || 0 }))} min={0} step={0.01} />
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-3">
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">每 100g 熱量 (kcal)</label>
-                <Input type="number" value={form.caloriesPer100g} onChange={e => setForm(p => ({ ...p, caloriesPer100g: Number(e.target.value) || 0 }))} className="w-40" min={0} step={0.01} />
-              </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">每 100g 熱量 (kcal)</label>
+              <Input type="number" value={form.caloriesPer100g} onChange={e => setForm(p => ({ ...p, caloriesPer100g: Number(e.target.value) || 0 }))} className="w-40" min={0} step={0.01} />
             </div>
 
             <p className="text-xs text-muted-foreground">營養成分（每 100g 含量），輸入 ND 代表未設定</p>

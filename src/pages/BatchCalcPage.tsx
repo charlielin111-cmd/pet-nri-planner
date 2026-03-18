@@ -37,7 +37,7 @@ const BatchCalcPage: React.FC = () => {
         materialCode: ing?.materialCode || '',
         originalAmount: fi.amount,
         scaledAmount: fi.amount * ratio,
-        percentage: parseFloat(((fi.amount / formulaTotal) * 100).toFixed(2)),
+        percentage: parseFloat(((fi.amount / formulaTotal) * 100).toFixed(3)),
         pricePerGram: ing?.pricePerGram || 0,
       };
     });
@@ -55,18 +55,18 @@ const BatchCalcPage: React.FC = () => {
     const rows = scaledIngredients.map(item => ({
       '編號': item.materialCode,
       '原料名稱': item.name,
-      '配方量 (g)': parseFloat(item.originalAmount.toFixed(2)),
+      '配方量 (g)': parseFloat(item.originalAmount.toFixed(3)),
       '佔比 (%)': item.percentage,
-      '需求量 (g)': parseFloat(item.scaledAmount.toFixed(2)),
-      '成本': parseFloat((item.scaledAmount * item.pricePerGram).toFixed(2)),
+      '需求量 (g)': parseFloat(item.scaledAmount.toFixed(3)),
+      '成本': parseFloat((item.scaledAmount * item.pricePerGram).toFixed(3)),
     }));
     rows.push({
       '編號': '',
       '原料名稱': '合計',
-      '配方量 (g)': parseFloat(formulaTotal.toFixed(2)),
+      '配方量 (g)': parseFloat(formulaTotal.toFixed(3)),
       '佔比 (%)': 100,
-      '需求量 (g)': parseFloat(targetWeight.toFixed(2)),
-      '成本': parseFloat(totalCost.toFixed(2)),
+      '需求量 (g)': parseFloat(targetWeight.toFixed(3)),
+      '成本': parseFloat(totalCost.toFixed(3)),
     });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -135,25 +135,25 @@ const BatchCalcPage: React.FC = () => {
                   <tbody>
                     {scaledIngredients.map((item, idx) => (
                       <tr key={idx} className="border-b last:border-0">
-                        <td className="py-2 pr-2 font-mono text-xs text-muted-foreground">{item.materialCode}</td>
+                       <td className="py-2 pr-2 font-mono text-xs text-muted-foreground">{item.materialCode}</td>
                         <td className="py-2 flex items-center gap-1.5">
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
                           {item.name}
                         </td>
-                        <td className="text-right py-2 font-mono text-muted-foreground">{item.originalAmount.toFixed(2)}</td>
-                        <td className="text-right py-2 font-mono text-muted-foreground">{item.percentage.toFixed(2)}%</td>
-                        <td className="text-right py-2 font-mono font-semibold">{parseFloat(item.scaledAmount.toFixed(2))}</td>
-                        <td className="text-right py-2 font-mono text-muted-foreground">${(item.scaledAmount * item.pricePerGram).toFixed(2)}</td>
+                        <td className="text-right py-2 font-mono text-muted-foreground">{item.originalAmount.toFixed(3)}</td>
+                        <td className="text-right py-2 font-mono text-muted-foreground">{item.percentage.toFixed(3)}%</td>
+                        <td className="text-right py-2 font-mono font-semibold">{parseFloat(item.scaledAmount.toFixed(3))}</td>
+                        <td className="text-right py-2 font-mono text-muted-foreground">${(item.scaledAmount * item.pricePerGram).toFixed(3)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t-2 font-semibold">
+                     <tr className="border-t-2 font-semibold">
                       <td colSpan={2} className="py-2">合計</td>
-                      <td className="text-right py-2 font-mono">{formulaTotal.toFixed(2)}</td>
-                      <td className="text-right py-2 font-mono">100.00%</td>
-                      <td className="text-right py-2 font-mono">{targetWeight.toFixed(2)}</td>
-                      <td className="text-right py-2 font-mono">${totalCost.toFixed(2)}</td>
+                      <td className="text-right py-2 font-mono">{formulaTotal.toFixed(3)}</td>
+                      <td className="text-right py-2 font-mono">100.000%</td>
+                      <td className="text-right py-2 font-mono">{targetWeight.toFixed(3)}</td>
+                      <td className="text-right py-2 font-mono">${totalCost.toFixed(3)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -168,7 +168,7 @@ const BatchCalcPage: React.FC = () => {
                 <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} innerRadius={35}>
                   {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
-                <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(1)}g (${targetWeight > 0 ? ((value / targetWeight) * 100).toFixed(1) : 0}%)`, name]} />
+                <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(3)}g (${targetWeight > 0 ? ((value / targetWeight) * 100).toFixed(3) : 0}%)`, name]} />
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-1 mt-2">
@@ -178,7 +178,7 @@ const BatchCalcPage: React.FC = () => {
                     <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
                     <span className="truncate max-w-[120px]">{item.name}</span>
                   </div>
-                  <span className="font-medium">{item.percentage.toFixed(1)}%</span>
+                  <span className="font-medium">{item.percentage.toFixed(3)}%</span>
                 </div>
               ))}
             </div>
