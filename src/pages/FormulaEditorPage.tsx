@@ -165,7 +165,7 @@ const FormulaEditorPage: React.FC = () => {
     const clampedPct = Math.max(0, newPct);
     const newAmount = (clampedPct / 100) * baseWeight;
     setFormulaIngredients(prev => prev.map((fi, i) =>
-      i === idx ? { ...fi, amount: parseFloat(newAmount.toFixed(2)) } : fi
+      i === idx ? { ...fi, amount: parseFloat(newAmount.toFixed(3)) } : fi
     ));
   };
 
