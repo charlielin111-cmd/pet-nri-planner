@@ -148,12 +148,12 @@ const BatchCalcPage: React.FC = () => {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t-2 font-semibold">
+                     <tr className="border-t-2 font-semibold">
                       <td colSpan={2} className="py-2">合計</td>
-                      <td className="text-right py-2 font-mono">{formulaTotal.toFixed(2)}</td>
-                      <td className="text-right py-2 font-mono">100.00%</td>
-                      <td className="text-right py-2 font-mono">{targetWeight.toFixed(2)}</td>
-                      <td className="text-right py-2 font-mono">${totalCost.toFixed(2)}</td>
+                      <td className="text-right py-2 font-mono">{formulaTotal.toFixed(3)}</td>
+                      <td className="text-right py-2 font-mono">100.000%</td>
+                      <td className="text-right py-2 font-mono">{targetWeight.toFixed(3)}</td>
+                      <td className="text-right py-2 font-mono">${totalCost.toFixed(3)}</td>
                     </tr>
                   </tfoot>
                 </table>
