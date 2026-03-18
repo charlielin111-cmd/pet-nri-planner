@@ -72,19 +72,19 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
           <>
             <Slider
               value={[pct]}
-              onValueChange={([v]) => onPercentChange(index, parseFloat(v.toFixed(2)))}
+              onValueChange={([v]) => onPercentChange(index, parseFloat(v.toFixed(3)))}
               max={100}
-              step={0.01}
+              step={0.001}
               className="w-24"
             />
             <Input
               type="number"
-              value={parseFloat(pct.toFixed(2))}
+              value={parseFloat(pct.toFixed(3))}
               onChange={e => onPercentChange(index, Number(e.target.value) || 0)}
-              className="w-20 text-right text-sm h-8"
+              className="w-24 text-right text-sm h-8"
               min={0}
               max={100}
-              step={0.01}
+              step={0.001}
             />
             <span className="text-xs text-muted-foreground">%</span>
           </>
@@ -92,17 +92,18 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
           <>
             <Slider
               value={[fi.amount]}
-              onValueChange={([v]) => onAmountChange(index, v)}
+              onValueChange={([v]) => onAmountChange(index, parseFloat(v.toFixed(3)))}
               max={500}
-              step={1}
+              step={0.001}
               className="w-24"
             />
             <Input
               type="number"
               value={fi.amount}
               onChange={e => onAmountChange(index, Number(e.target.value) || 0)}
-              className="w-20 text-right text-sm h-8"
+              className="w-24 text-right text-sm h-8"
               min={0}
+              step={0.001}
             />
             <span className="text-xs text-muted-foreground">g</span>
           </>
