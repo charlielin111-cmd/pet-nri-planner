@@ -37,7 +37,7 @@ const BatchCalcPage: React.FC = () => {
         materialCode: ing?.materialCode || '',
         originalAmount: fi.amount,
         scaledAmount: fi.amount * ratio,
-        percentage: parseFloat(((fi.amount / formulaTotal) * 100).toFixed(2)),
+        percentage: parseFloat(((fi.amount / formulaTotal) * 100).toFixed(3)),
         pricePerGram: ing?.pricePerGram || 0,
       };
     });
