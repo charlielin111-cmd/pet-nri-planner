@@ -29,7 +29,7 @@ interface AppContextType {
   saveNutrients: (items: NutrientDefinition[]) => Promise<void>;
   undo: () => Promise<void>;
   exportAllData: () => Promise<string>;
-  importAllData: (json: string) => Promise<void>;
+  importAllData: (json: string, mode?: 'overwrite' | 'update') => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
