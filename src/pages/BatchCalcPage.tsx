@@ -178,7 +178,7 @@ const BatchCalcPage: React.FC = () => {
                     <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
                     <span className="truncate max-w-[120px]">{item.name}</span>
                   </div>
-                  <span className="font-medium">{item.percentage.toFixed(1)}%</span>
+                  <span className="font-medium">{item.percentage.toFixed(3)}%</span>
                 </div>
               ))}
             </div>

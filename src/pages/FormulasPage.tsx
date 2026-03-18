@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { Plus, Trash2, Download, Save, Copy } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Trash2, Download, Save, Copy, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -18,6 +19,15 @@ const FormulasPage: React.FC = () => {
   const [channelId, setChannelId] = useState('');
   const [servingSize, setServingSize] = useState('');
   const [note, setNote] = useState('');
+
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingFormula, setEditingFormula] = useState<Formula | null>(null);
+  const [editCode, setEditCode] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editChannelId, setEditChannelId] = useState('');
+  const [editServingSize, setEditServingSize] = useState('');
+  const [editNote, setEditNote] = useState('');
 
   const handleAdd = async () => {
     if (!code.trim() || !name.trim()) return;
@@ -34,6 +44,31 @@ const FormulasPage: React.FC = () => {
     await saveFormula(formula);
     setCode(''); setName(''); setChannelId(''); setServingSize(''); setNote('');
     toast.success('配方已新增');
+  };
+
+  const openEdit = (f: Formula) => {
+    setEditingFormula(f);
+    setEditCode(f.code);
+    setEditName(f.name);
+    setEditChannelId(f.channelId || '');
+    setEditServingSize(f.servingSize ? String(f.servingSize) : '');
+    setEditNote(f.note || '');
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingFormula || !editCode.trim() || !editName.trim()) return;
+    await saveFormula({
+      ...editingFormula,
+      code: editCode.trim(),
+      name: editName.trim(),
+      channelId: editChannelId,
+      servingSize: editServingSize ? Number(editServingSize) : undefined,
+      note: editNote.trim() || undefined,
+      updatedAt: new Date().toISOString(),
+    });
+    setEditDialogOpen(false);
+    toast.success('配方已更新');
   };
 
   const handleExport = (formula: Formula) => {
@@ -158,6 +193,9 @@ const FormulasPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(f)} title="編輯配方">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleCopy(f)} title="複製配方">
                           <Copy className="h-4 w-4" />
                         </Button>
@@ -176,6 +214,52 @@ const FormulasPage: React.FC = () => {
           </table>
         </div>
       </Card>
+
+      {/* Edit formula dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>編輯配方資訊</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">配方編號</label>
+                <Input value={editCode} onChange={e => setEditCode(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">配方名稱</label>
+                <Input value={editName} onChange={e => setEditName(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">對應通路</label>
+                <Select value={editChannelId} onValueChange={setEditChannelId}>
+                  <SelectTrigger><SelectValue placeholder="選擇通路" /></SelectTrigger>
+                  <SelectContent>
+                    {channels.map(ch => (
+                      <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">每份規格 (g)</label>
+                <Input type="number" value={editServingSize} onChange={e => setEditServingSize(e.target.value)} placeholder="100" min={0} step={0.1} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">備註</label>
+              <Input value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="備註說明..." />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setEditDialogOpen(false)}>取消</Button>
+              <Button onClick={handleEditSave} className="gap-1.5"><Save className="h-4 w-4" /> 儲存</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
