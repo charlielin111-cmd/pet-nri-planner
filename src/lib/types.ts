@@ -22,11 +22,16 @@ export const NUTRIENT_CATEGORY_LABELS: Record<NutrientCategory, string> = {
   carbohydrate: '碳水化合物類',
 };
 
+export type PriceUnit = 'per_gram' | 'per_kg' | 'custom';
+
 export interface Ingredient {
   id: string;
   materialCode: string;
   name: string;
   pricePerGram: number;
+  priceUnit?: PriceUnit;
+  priceUnitLabel?: string; // custom unit label
+  priceRaw?: number; // raw price input before conversion
   caloriesPer100g?: number; // kcal per 100g
   nutrients: Record<string, number | 'ND'>;
   updatedAt: string;

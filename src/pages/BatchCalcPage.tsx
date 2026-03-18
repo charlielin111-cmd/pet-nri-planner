@@ -55,18 +55,18 @@ const BatchCalcPage: React.FC = () => {
     const rows = scaledIngredients.map(item => ({
       '編號': item.materialCode,
       '原料名稱': item.name,
-      '配方量 (g)': parseFloat(item.originalAmount.toFixed(2)),
+      '配方量 (g)': parseFloat(item.originalAmount.toFixed(3)),
       '佔比 (%)': item.percentage,
-      '需求量 (g)': parseFloat(item.scaledAmount.toFixed(2)),
-      '成本': parseFloat((item.scaledAmount * item.pricePerGram).toFixed(2)),
+      '需求量 (g)': parseFloat(item.scaledAmount.toFixed(3)),
+      '成本': parseFloat((item.scaledAmount * item.pricePerGram).toFixed(3)),
     }));
     rows.push({
       '編號': '',
       '原料名稱': '合計',
-      '配方量 (g)': parseFloat(formulaTotal.toFixed(2)),
+      '配方量 (g)': parseFloat(formulaTotal.toFixed(3)),
       '佔比 (%)': 100,
-      '需求量 (g)': parseFloat(targetWeight.toFixed(2)),
-      '成本': parseFloat(totalCost.toFixed(2)),
+      '需求量 (g)': parseFloat(targetWeight.toFixed(3)),
+      '成本': parseFloat(totalCost.toFixed(3)),
     });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
