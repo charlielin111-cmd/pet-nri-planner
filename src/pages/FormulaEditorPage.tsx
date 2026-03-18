@@ -311,7 +311,7 @@ const FormulaEditorPage: React.FC = () => {
     ingRows.push({
       '編號': '',
       '原料名稱': '合計',
-      '用量 (g)': parseFloat(totalWeight.toFixed(2)),
+      '用量 (g)': parseFloat(totalWeight.toFixed(3)),
       '佔比 (%)': 100,
     });
 
