@@ -168,7 +168,7 @@ const BatchCalcPage: React.FC = () => {
                 <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} innerRadius={35}>
                   {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
-                <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(1)}g (${targetWeight > 0 ? ((value / targetWeight) * 100).toFixed(1) : 0}%)`, name]} />
+                <Tooltip formatter={(value: number, name: string) => [`${value.toFixed(3)}g (${targetWeight > 0 ? ((value / targetWeight) * 100).toFixed(3) : 0}%)`, name]} />
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-1 mt-2">
