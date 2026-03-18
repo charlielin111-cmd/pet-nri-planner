@@ -510,11 +510,11 @@ const FormulaEditorPage: React.FC = () => {
                     成分加總 {selectedFormula?.servingSize ? <span className="text-xs font-normal text-muted-foreground">(每份規格: {selectedFormula.servingSize}g)</span> : null}
                   </span>
                   <div className="flex items-center gap-3 text-sm font-mono font-semibold">
-                    <span>{parseFloat(totalWeight.toFixed(2))} g</span>
+                    <span>{parseFloat(totalWeight.toFixed(3))} g</span>
                     <span className="text-muted-foreground">/</span>
                     {(() => {
                       const base = selectedFormula?.servingSize || totalWeight;
-                      const totalPct = base > 0 ? parseFloat((totalWeight / base * 100).toFixed(2)) : 0;
+                      const totalPct = base > 0 ? parseFloat((totalWeight / base * 100).toFixed(3)) : 0;
                       return (
                         <span className={base > 0 ? (Math.abs(totalPct - 100) < 0.01 ? 'text-foreground' : totalPct > 100 ? 'text-destructive font-bold' : 'text-amber-600') : 'text-muted-foreground'}>
                           {totalPct} %
