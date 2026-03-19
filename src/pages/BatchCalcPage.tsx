@@ -27,6 +27,12 @@ const BatchCalcPage: React.FC = () => {
     return selectedFormula.ingredients.reduce((s, fi) => s + fi.amount, 0);
   }, [selectedFormula]);
 
+  // Use servingSize as the percentage base (matches formula editor), allowing >100%
+  const percentBase = useMemo(() => {
+    if (!selectedFormula) return 0;
+    return selectedFormula.servingSize || formulaTotal;
+  }, [selectedFormula, formulaTotal]);
+
   const scaledIngredients = useMemo(() => {
     if (!selectedFormula || formulaTotal === 0) return [];
     const ratio = targetWeight / formulaTotal;
@@ -37,11 +43,11 @@ const BatchCalcPage: React.FC = () => {
         materialCode: ing?.materialCode || '',
         originalAmount: fi.amount,
         scaledAmount: fi.amount * ratio,
-        percentage: parseFloat(((fi.amount / formulaTotal) * 100).toFixed(3)),
+        percentage: percentBase > 0 ? parseFloat(((fi.amount / percentBase) * 100).toFixed(3)) : 0,
         pricePerGram: ing?.pricePerGram || 0,
       };
     });
-  }, [selectedFormula, formulaTotal, targetWeight, ingredients]);
+  }, [selectedFormula, formulaTotal, percentBase, targetWeight, ingredients]);
 
   const totalCost = scaledIngredients.reduce((s, i) => s + i.scaledAmount * i.pricePerGram, 0);
 
@@ -148,10 +154,10 @@ const BatchCalcPage: React.FC = () => {
                     ))}
                   </tbody>
                   <tfoot>
-                     <tr className="border-t-2 font-semibold">
+                   <tr className="border-t-2 font-semibold">
                       <td colSpan={2} className="py-2">合計</td>
                       <td className="text-right py-2 font-mono">{formulaTotal.toFixed(3)}</td>
-                      <td className="text-right py-2 font-mono">100.000%</td>
+                      <td className="text-right py-2 font-mono">{percentBase > 0 ? ((formulaTotal / percentBase) * 100).toFixed(3) : '0.000'}%</td>
                       <td className="text-right py-2 font-mono">{targetWeight.toFixed(3)}</td>
                       <td className="text-right py-2 font-mono">${totalCost.toFixed(3)}</td>
                     </tr>
