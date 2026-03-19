@@ -208,69 +208,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return JSON.stringify({ ingredients: ings, channels: chs, formulas: forms, nutrients: nuts, exportedAt: new Date().toISOString() }, null, 2);
   };
 
-  const importAllData = async (json: string, mode: 'overwrite' | 'update' = 'overwrite') => {
+  const previewImportDiff = async (json: string): Promise<ImportDiff> => {
+    const data = JSON.parse(json);
+    const existingIngs = await db.getAll<Ingredient>('ingredients');
+    const existingChs = await db.getAll<MarketChannel>('channels');
+    const existingForms = await db.getAll<Formula>('formulas');
+    const existingNuts = await db.getAll<NutrientDefinition>('nutrients');
+
+    const diffIngredients: ImportDiffItem[] = (data.ingredients || []).map((inc: Ingredient) => {
+      const match = existingIngs.find(e => e.materialCode === inc.materialCode);
+      return { key: inc.materialCode || inc.id, label: `${inc.materialCode} - ${inc.name}`, type: match ? 'update' as const : 'new' as const, data: inc, matchId: match?.id };
+    });
+    const diffChannels: ImportDiffItem[] = (data.channels || []).map((inc: MarketChannel) => {
+      const match = existingChs.find(e => e.name === inc.name);
+      return { key: inc.name || inc.id, label: inc.name, type: match ? 'update' as const : 'new' as const, data: inc, matchId: match?.id };
+    });
+    const diffFormulas: ImportDiffItem[] = (data.formulas || []).map((inc: Formula) => {
+      const match = existingForms.find(e => e.code === inc.code);
+      return { key: inc.code || inc.id, label: `${inc.code} - ${inc.name}`, type: match ? 'update' as const : 'new' as const, data: inc, matchId: match?.id };
+    });
+    const diffNutrients: ImportDiffItem[] = (data.nutrients || []).map((inc: NutrientDefinition) => {
+      const match = existingNuts.find(e => e.id === inc.id);
+      return { key: inc.id, label: `${inc.name} (${inc.nameEn})`, type: match ? 'update' as const : 'new' as const, data: inc, matchId: match?.id };
+    });
+
+    return { ingredients: diffIngredients, channels: diffChannels, formulas: diffFormulas, nutrients: diffNutrients };
+  };
+
+  const importSelective = async (json: string, selected: { ingredients: string[]; channels: string[]; formulas: string[]; nutrients: string[] }) => {
     pushUndo();
     const data = JSON.parse(json);
+    const existingIngs = await db.getAll<Ingredient>('ingredients');
+    const existingChs = await db.getAll<MarketChannel>('channels');
+    const existingForms = await db.getAll<Formula>('formulas');
 
-    if (mode === 'overwrite') {
-      // Clear all existing data
-      const allIngs = await db.getAll<Ingredient>('ingredients');
-      for (const i of allIngs) await db.deleteItem('ingredients', i.id);
-      const allChs = await db.getAll<MarketChannel>('channels');
-      for (const c of allChs) await db.deleteItem('channels', c.id);
-      const allForms = await db.getAll<Formula>('formulas');
-      for (const f of allForms) await db.deleteItem('formulas', f.id);
-      const allNuts = await db.getAll<NutrientDefinition>('nutrients');
-      for (const n of allNuts) await db.deleteItem('nutrients', n.id);
-
-      // Import all
-      if (data.ingredients) for (const i of data.ingredients) await db.putItem('ingredients', i);
-      if (data.channels) for (const c of data.channels) await db.putItem('channels', c);
-      if (data.formulas) for (const f of data.formulas) await db.putItem('formulas', f);
-      if (data.nutrients) for (const n of data.nutrients) await db.putItem('nutrients', n);
-    } else {
-      // Update mode: match by code/name, update existing, add new
-      const existingIngs = await db.getAll<Ingredient>('ingredients');
-      const existingChs = await db.getAll<MarketChannel>('channels');
-      const existingForms = await db.getAll<Formula>('formulas');
-
-      if (data.ingredients) {
-        for (const incoming of data.ingredients as Ingredient[]) {
-          const match = existingIngs.find(e => e.materialCode === incoming.materialCode);
-          if (match) {
-            await db.putItem('ingredients', { ...incoming, id: match.id });
-          } else {
-            await db.putItem('ingredients', incoming);
-          }
-        }
+    if (data.ingredients) {
+      for (const inc of data.ingredients as Ingredient[]) {
+        const key = inc.materialCode || inc.id;
+        if (!selected.ingredients.includes(key)) continue;
+        const match = existingIngs.find(e => e.materialCode === inc.materialCode);
+        if (match) await db.putItem('ingredients', { ...inc, id: match.id });
+        else await db.putItem('ingredients', inc);
       }
-
-      if (data.channels) {
-        for (const incoming of data.channels as MarketChannel[]) {
-          const match = existingChs.find(e => e.name === incoming.name);
-          if (match) {
-            await db.putItem('channels', { ...incoming, id: match.id });
-          } else {
-            await db.putItem('channels', incoming);
-          }
-        }
+    }
+    if (data.channels) {
+      for (const inc of data.channels as MarketChannel[]) {
+        const key = inc.name || inc.id;
+        if (!selected.channels.includes(key)) continue;
+        const match = existingChs.find(e => e.name === inc.name);
+        if (match) await db.putItem('channels', { ...inc, id: match.id });
+        else await db.putItem('channels', inc);
       }
-
-      if (data.formulas) {
-        for (const incoming of data.formulas as Formula[]) {
-          const match = existingForms.find(e => e.code === incoming.code);
-          if (match) {
-            await db.putItem('formulas', { ...incoming, id: match.id });
-          } else {
-            await db.putItem('formulas', incoming);
-          }
-        }
+    }
+    if (data.formulas) {
+      for (const inc of data.formulas as Formula[]) {
+        const key = inc.code || inc.id;
+        if (!selected.formulas.includes(key)) continue;
+        const match = existingForms.find(e => e.code === inc.code);
+        if (match) await db.putItem('formulas', { ...inc, id: match.id });
+        else await db.putItem('formulas', inc);
       }
-
-      if (data.nutrients) {
-        for (const n of data.nutrients as NutrientDefinition[]) {
-          await db.putItem('nutrients', n);
-        }
+    }
+    if (data.nutrients) {
+      for (const n of data.nutrients as NutrientDefinition[]) {
+        if (!selected.nutrients.includes(n.id)) continue;
+        await db.putItem('nutrients', n);
       }
     }
 
@@ -284,7 +286,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       canUndo: undoStack.current.length > 0, undoCount,
       refreshAll, saveIngredient, deleteIngredient,
       saveChannel, deleteChannel, saveFormula, deleteFormula, saveNutrients,
-      undo, exportAllData, importAllData,
+      undo, exportAllData, importAllData, previewImportDiff, importSelective,
     }}>
       {children}
     </AppContext.Provider>
