@@ -268,19 +268,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const existingForms = await db.getAll<Formula>('formulas');
     const existingNuts = await db.getAll<NutrientDefinition>('nutrients');
 
-    const diffIngredients: ImportDiffItem[] = (data.ingredients || []).map((inc: Ingredient) => {
+    const isDataEqual = (a: any, b: any, ignoreKeys: string[] = ['id', 'updatedAt']): boolean => {
+      const filterKeys = (obj: any) => {
+        const copy = { ...obj };
+        for (const k of ignoreKeys) delete copy[k];
+        return copy;
+      };
+      return JSON.stringify(filterKeys(a)) === JSON.stringify(filterKeys(b));
+    };
+
+    const diffIngredients: ImportDiffItem[] = (data.ingredients || []).filter((inc: Ingredient) => {
+      const match = existingIngs.find(e => e.materialCode === inc.materialCode);
+      return !match || !isDataEqual(inc, match);
+    }).map((inc: Ingredient) => {
       const match = existingIngs.find(e => e.materialCode === inc.materialCode);
       return { key: inc.materialCode || inc.id, label: `${inc.materialCode} - ${inc.name}`, type: match ? 'update' as const : 'new' as const, data: inc, matchId: match?.id };
     });
-    const diffChannels: ImportDiffItem[] = (data.channels || []).map((inc: MarketChannel) => {
+    const diffChannels: ImportDiffItem[] = (data.channels || []).filter((inc: MarketChannel) => {
+      const match = existingChs.find(e => e.name === inc.name);
+      return !match || !isDataEqual(inc, match);
+    }).map((inc: MarketChannel) => {
       const match = existingChs.find(e => e.name === inc.name);
       return { key: inc.name || inc.id, label: inc.name, type: match ? 'update' as const : 'new' as const, data: inc, matchId: match?.id };
     });
-    const diffFormulas: ImportDiffItem[] = (data.formulas || []).map((inc: Formula) => {
+    const diffFormulas: ImportDiffItem[] = (data.formulas || []).filter((inc: Formula) => {
+      const match = existingForms.find(e => e.code === inc.code);
+      return !match || !isDataEqual(inc, match);
+    }).map((inc: Formula) => {
       const match = existingForms.find(e => e.code === inc.code);
       return { key: inc.code || inc.id, label: `${inc.code} - ${inc.name}`, type: match ? 'update' as const : 'new' as const, data: inc, matchId: match?.id };
     });
-    const diffNutrients: ImportDiffItem[] = (data.nutrients || []).map((inc: NutrientDefinition) => {
+    const diffNutrients: ImportDiffItem[] = (data.nutrients || []).filter((inc: NutrientDefinition) => {
+      const match = existingNuts.find(e => e.id === inc.id);
+      return !match || !isDataEqual(inc, match);
+    }).map((inc: NutrientDefinition) => {
       const match = existingNuts.find(e => e.id === inc.id);
       return { key: inc.id, label: `${inc.name} (${inc.nameEn})`, type: match ? 'update' as const : 'new' as const, data: inc, matchId: match?.id };
     });
