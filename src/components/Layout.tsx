@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAppContext } from '@/contexts/AppContext';
 import { ImportDiff, ImportDiffItem } from '@/contexts/AppContext';
-import { FlaskConical, Package, ShieldCheck, FileText, Undo2, Download, Upload, Scale, Plus, RefreshCw } from 'lucide-react';
+import { FlaskConical, Package, ShieldCheck, FileText, Undo2, Download, Upload, Scale, Plus, RefreshCw, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const navItems = [
   { to: '/', label: '配方', icon: FileText },
@@ -148,17 +149,21 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const newItems = items.filter(i => i.type === 'new');
     const updateItems = items.filter(i => i.type === 'update');
     const allSelected = items.every(i => selectedKeys[category].includes(i.key));
+    const selectedCount = items.filter(i => selectedKeys[category].includes(i.key)).length;
 
     return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
+      <Collapsible defaultOpen className="border rounded-lg">
+        <div className="flex items-center justify-between px-3 py-2 bg-secondary/30">
           <div className="flex items-center gap-2">
             <Checkbox
               checked={allSelected}
               onCheckedChange={() => toggleAllInCategory(category, items)}
             />
-            <span className="text-sm font-semibold">{title}</span>
-            <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+            <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <span className="text-sm font-semibold">{title}</span>
+              <Badge variant="secondary" className="text-xs">{selectedCount}/{items.length}</Badge>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+            </CollapsibleTrigger>
           </div>
           <div className="flex gap-1.5">
             {newItems.length > 0 && (
@@ -173,23 +178,25 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             )}
           </div>
         </div>
-        <div className="ml-6 space-y-1">
-          {items.map(item => (
-            <label key={item.key} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-secondary/50 cursor-pointer text-sm">
-              <Checkbox
-                checked={selectedKeys[category].includes(item.key)}
-                onCheckedChange={() => toggleKey(category, item.key)}
-              />
-              <span className="flex-1 truncate">{item.label}</span>
-              {item.type === 'new' ? (
-                <Badge variant="outline" className="text-emerald-600 border-emerald-300 text-xs shrink-0">新增</Badge>
-              ) : (
-                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs shrink-0">更新</Badge>
-              )}
-            </label>
-          ))}
-        </div>
-      </div>
+        <CollapsibleContent>
+          <div className="px-3 py-1 space-y-0.5">
+            {items.map(item => (
+              <label key={item.key} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-secondary/50 cursor-pointer text-sm">
+                <Checkbox
+                  checked={selectedKeys[category].includes(item.key)}
+                  onCheckedChange={() => toggleKey(category, item.key)}
+                />
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.type === 'new' ? (
+                  <Badge variant="outline" className="text-emerald-600 border-emerald-300 text-xs shrink-0">新增</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs shrink-0">更新</Badge>
+                )}
+              </label>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     );
   };
 
