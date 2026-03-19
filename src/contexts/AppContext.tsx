@@ -10,6 +10,21 @@ interface AppState {
   nutrients: NutrientDefinition[];
 }
 
+export interface ImportDiffItem {
+  key: string; // id or materialCode/code/name
+  label: string; // display name
+  type: 'new' | 'update';
+  data: any;
+  matchId?: string; // existing id to update
+}
+
+export interface ImportDiff {
+  ingredients: ImportDiffItem[];
+  channels: ImportDiffItem[];
+  formulas: ImportDiffItem[];
+  nutrients: ImportDiffItem[];
+}
+
 interface AppContextType {
   ingredients: Ingredient[];
   channels: MarketChannel[];
@@ -30,6 +45,8 @@ interface AppContextType {
   undo: () => Promise<void>;
   exportAllData: () => Promise<string>;
   importAllData: (json: string, mode?: 'overwrite' | 'update') => Promise<void>;
+  previewImportDiff: (json: string) => Promise<ImportDiff>;
+  importSelective: (json: string, selected: { ingredients: string[]; channels: string[]; formulas: string[]; nutrients: string[] }) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
