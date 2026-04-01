@@ -135,6 +135,7 @@ const FormulaEditorPage: React.FC = () => {
     if (selectedFormula) {
       setFormulaIngredients([...selectedFormula.ingredients]);
       setSelectedChannelId(selectedFormula.channelId || '');
+      setSummaryItems(selectedFormula.summaryItems && selectedFormula.summaryItems.length > 0 ? selectedFormula.summaryItems : DEFAULT_SUMMARY_ITEMS);
     }
   }, [selectedFormula]);
 
