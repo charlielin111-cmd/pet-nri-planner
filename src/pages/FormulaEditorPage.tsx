@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppContext } from '@/contexts/AppContext';
-import { FormulaIngredient, ValidationResult, NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
+import { FormulaIngredient, FormulaSummaryItem, ValidationResult, NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';

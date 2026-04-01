@@ -50,6 +50,11 @@ export interface NutrientLimit {
   max?: number;
 }
 
+export interface FormulaSummaryItem {
+  id: string;
+  label: string;
+}
+
 export interface Formula {
   id: string;
   code: string;
@@ -58,6 +63,7 @@ export interface Formula {
   servingSize?: number; // grams per serving
   note?: string;
   ingredients: FormulaIngredient[];
+  summaryItems?: FormulaSummaryItem[];
   updatedAt: string;
 }
 
