@@ -87,7 +87,7 @@ const FormulasPage: React.FC = () => {
       nutrients.forEach(n => {
         const val = ing.nutrients[n.id];
         if (val !== 'ND' && typeof val === 'number') {
-          totals[n.id] = (totals[n.id] || 0) + val * fi.amount;
+          totals[n.id] = (totals[n.id] || 0) + (val / 100) * fi.amount;
         }
       });
     });
