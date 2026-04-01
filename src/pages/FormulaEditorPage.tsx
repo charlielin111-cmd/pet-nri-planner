@@ -125,7 +125,7 @@ const FormulaEditorPage: React.FC = () => {
   const [formulaIngredients, setFormulaIngredients] = useState<FormulaIngredient[]>([]);
   const [search, setSearch] = useState('');
   const [selectedChannelId, setSelectedChannelId] = useState('');
-  const [summaryItems, setSummaryItems] = useState(DEFAULT_SUMMARY_ITEMS);
+  const [summaryItems, setSummaryItems] = useState<FormulaSummaryItem[]>(DEFAULT_SUMMARY_ITEMS);
   const [summaryEditOpen, setSummaryEditOpen] = useState(false);
   const [usePercent, setUsePercent] = useState(false);
 
