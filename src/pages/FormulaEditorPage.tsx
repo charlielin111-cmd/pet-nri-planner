@@ -292,6 +292,7 @@ const FormulaEditorPage: React.FC = () => {
       ...selectedFormula,
       ingredients: formulaIngredients,
       channelId: selectedChannelId,
+      summaryItems,
       updatedAt: new Date().toISOString(),
     });
     toast.success('配方已儲存');
