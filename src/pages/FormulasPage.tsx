@@ -115,6 +115,7 @@ const FormulasPage: React.FC = () => {
       code: f.code + '_copy',
       name: f.name + ' (副本)',
       ingredients: f.ingredients.map(fi => ({ ...fi })),
+      summaryItems: f.summaryItems ? [...f.summaryItems] : undefined,
       updatedAt: new Date().toISOString(),
     };
     await saveFormula(newFormula);
