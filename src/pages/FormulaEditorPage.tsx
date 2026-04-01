@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppContext } from '@/contexts/AppContext';
-import { FormulaIngredient, ValidationResult, NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
+import { FormulaIngredient, FormulaSummaryItem, ValidationResult, NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -125,7 +125,7 @@ const FormulaEditorPage: React.FC = () => {
   const [formulaIngredients, setFormulaIngredients] = useState<FormulaIngredient[]>([]);
   const [search, setSearch] = useState('');
   const [selectedChannelId, setSelectedChannelId] = useState('');
-  const [summaryItems, setSummaryItems] = useState(DEFAULT_SUMMARY_ITEMS);
+  const [summaryItems, setSummaryItems] = useState<FormulaSummaryItem[]>(DEFAULT_SUMMARY_ITEMS);
   const [summaryEditOpen, setSummaryEditOpen] = useState(false);
   const [usePercent, setUsePercent] = useState(false);
 
@@ -135,6 +135,7 @@ const FormulaEditorPage: React.FC = () => {
     if (selectedFormula) {
       setFormulaIngredients([...selectedFormula.ingredients]);
       setSelectedChannelId(selectedFormula.channelId || '');
+      setSummaryItems(selectedFormula.summaryItems && selectedFormula.summaryItems.length > 0 ? selectedFormula.summaryItems : DEFAULT_SUMMARY_ITEMS);
     }
   }, [selectedFormula]);
 
@@ -291,6 +292,7 @@ const FormulaEditorPage: React.FC = () => {
       ...selectedFormula,
       ingredients: formulaIngredients,
       channelId: selectedChannelId,
+      summaryItems,
       updatedAt: new Date().toISOString(),
     });
     toast.success('配方已儲存');

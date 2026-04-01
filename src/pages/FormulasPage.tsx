@@ -87,7 +87,7 @@ const FormulasPage: React.FC = () => {
       nutrients.forEach(n => {
         const val = ing.nutrients[n.id];
         if (val !== 'ND' && typeof val === 'number') {
-          totals[n.id] = (totals[n.id] || 0) + val * fi.amount;
+          totals[n.id] = (totals[n.id] || 0) + (val / 100) * fi.amount;
         }
       });
     });
@@ -115,6 +115,7 @@ const FormulasPage: React.FC = () => {
       code: f.code + '_copy',
       name: f.name + ' (副本)',
       ingredients: f.ingredients.map(fi => ({ ...fi })),
+      summaryItems: f.summaryItems ? [...f.summaryItems] : undefined,
       updatedAt: new Date().toISOString(),
     };
     await saveFormula(newFormula);
