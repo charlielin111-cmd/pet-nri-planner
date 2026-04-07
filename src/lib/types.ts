@@ -80,3 +80,12 @@ export interface ValidationResult {
   limit: NutrientLimit;
   passed: boolean;
 }
+
+export interface FormulaVersion {
+  id: string;
+  formulaId: string;
+  version: number;
+  patchNotes: string;
+  snapshot: Formula;
+  createdAt: string;
+}
