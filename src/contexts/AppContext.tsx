@@ -153,9 +153,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await refreshAll();
   };
 
-  const saveFormula = async (item: Formula) => {
+  const saveFormula = async (item: Formula, patchNotes?: string) => {
     pushUndo();
+    // Auto-create version
+    const existingVersions = await db.getAllByIndex<FormulaVersion>('formulaVersions', 'formulaId', item.id);
+    const nextVersion = existingVersions.length > 0 ? Math.max(...existingVersions.map(v => v.version)) + 1 : 1;
+    const version: FormulaVersion = {
+      id: `${item.id}_v${nextVersion}_${Date.now()}`,
+      formulaId: item.id,
+      version: nextVersion,
+      patchNotes: patchNotes || '',
+      snapshot: { ...item },
+      createdAt: new Date().toISOString(),
+    };
+    await db.putItem('formulaVersions', version);
     await db.putItem('formulas', item);
+    await updateTime();
+    await refreshAll();
+  };
+
+  const getFormulaVersions = async (formulaId: string): Promise<FormulaVersion[]> => {
+    const versions = await db.getAllByIndex<FormulaVersion>('formulaVersions', 'formulaId', formulaId);
+    return versions.sort((a, b) => b.version - a.version);
+  };
+
+  const restoreFormulaVersion = async (version: FormulaVersion) => {
+    pushUndo();
+    await db.putItem('formulas', { ...version.snapshot, updatedAt: new Date().toISOString() });
     await updateTime();
     await refreshAll();
   };
