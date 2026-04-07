@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { Formula } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -6,21 +6,72 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Trash2, Download, Save, Copy, Pencil } from 'lucide-react';
+import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+interface SortableFormulaRowProps {
+  formula: Formula;
+  channelName: string;
+  onEdit: (f: Formula) => void;
+  onCopy: (f: Formula) => void;
+  onExport: (f: Formula) => void;
+  onDelete: (id: string) => void;
+  onNavigate: (id: string) => void;
+}
+
+const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, channelName, onEdit, onCopy, onExport, onDelete, onNavigate }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: f.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  return (
+    <tr ref={setNodeRef} style={style} className="border-b hover:bg-muted/30">
+      <td className="px-2 py-3 w-8">
+        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground">
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </td>
+      <td className="px-4 py-3 font-mono cursor-pointer" onClick={() => onNavigate(f.id)}>{f.code}</td>
+      <td className="px-4 py-3 cursor-pointer" onClick={() => onNavigate(f.id)}>{f.name}</td>
+      <td className="px-4 py-3">{channelName}</td>
+      <td className="px-4 py-3">{f.servingSize ? `${f.servingSize}g` : '-'}</td>
+      <td className="px-4 py-3">{f.ingredients.length}</td>
+      <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{f.note || '-'}</td>
+      <td className="px-4 py-3 text-muted-foreground text-xs">
+        {new Date(f.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })}
+      </td>
+      <td className="px-4 py-3 text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(f)} title="編輯配方"><Pencil className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => onCopy(f)} title="複製配方"><Copy className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => onExport(f)} title="匯出 Excel"><Download className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => onDelete(f.id)} title="刪除"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+        </div>
+      </td>
+    </tr>
+  );
+};
 
 const FormulasPage: React.FC = () => {
   const { formulas, channels, ingredients, nutrients, saveFormula, deleteFormula } = useAppContext();
   const navigate = useNavigate();
+
+  // Search & filter
+  const [searchText, setSearchText] = useState('');
+  const [filterChannelId, setFilterChannelId] = useState('__all__');
+
+  // Add form
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [channelId, setChannelId] = useState('');
   const [servingSize, setServingSize] = useState('');
   const [note, setNote] = useState('');
 
-  // Edit dialog state
+  // Edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingFormula, setEditingFormula] = useState<Formula | null>(null);
   const [editCode, setEditCode] = useState('');
@@ -28,6 +79,41 @@ const FormulasPage: React.FC = () => {
   const [editChannelId, setEditChannelId] = useState('');
   const [editServingSize, setEditServingSize] = useState('');
   const [editNote, setEditNote] = useState('');
+
+  // Custom order tracking
+  const [customOrder, setCustomOrder] = useState<string[] | null>(null);
+
+  // DnD sensors
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Sort formulas: use custom order if set, otherwise sort by code ascending
+  const sortedFormulas = useMemo(() => {
+    const sorted = [...formulas].sort((a, b) => a.code.localeCompare(b.code, 'zh-TW', { numeric: true }));
+    if (customOrder) {
+      const orderMap = new Map(customOrder.map((id, i) => [id, i]));
+      sorted.sort((a, b) => {
+        const oa = orderMap.get(a.id);
+        const ob = orderMap.get(b.id);
+        if (oa !== undefined && ob !== undefined) return oa - ob;
+        if (oa !== undefined) return -1;
+        if (ob !== undefined) return 1;
+        return a.code.localeCompare(b.code, 'zh-TW', { numeric: true });
+      });
+    }
+    return sorted;
+  }, [formulas, customOrder]);
+
+  // Filtered formulas
+  const filteredFormulas = useMemo(() => {
+    return sortedFormulas.filter(f => {
+      const matchSearch = !searchText.trim() ||
+        f.code.toLowerCase().includes(searchText.toLowerCase()) ||
+        f.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        (f.note || '').toLowerCase().includes(searchText.toLowerCase());
+      const matchChannel = filterChannelId === '__all__' || f.channelId === filterChannelId;
+      return matchSearch && matchChannel;
+    });
+  }, [sortedFormulas, searchText, filterChannelId]);
 
   const handleAdd = async () => {
     if (!code.trim() || !name.trim()) return;
@@ -122,9 +208,50 @@ const FormulasPage: React.FC = () => {
     toast.success('配方已複製');
   };
 
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const currentIds = filteredFormulas.map(f => f.id);
+    const oldIndex = currentIds.indexOf(active.id);
+    const newIndex = currentIds.indexOf(over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const allIds = sortedFormulas.map(f => f.id);
+    const newOrder = arrayMove(allIds, allIds.indexOf(active.id), allIds.indexOf(over.id));
+    setCustomOrder(newOrder);
+    toast.success('排序已更新');
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">配方管理</h1>
+
+      {/* Search & Filter */}
+      <Card className="p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              placeholder="搜尋配方編號、名稱或備註..."
+              className="pl-9"
+            />
+          </div>
+          <div className="w-full sm:w-48">
+            <Select value={filterChannelId} onValueChange={setFilterChannelId}>
+              <SelectTrigger><SelectValue placeholder="篩選通路" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">全部通路</SelectItem>
+                {channels.map(ch => (
+                  <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Card>
+
+      {/* Add form */}
       <Card className="p-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
           <div>
@@ -160,59 +287,50 @@ const FormulasPage: React.FC = () => {
         </div>
       </Card>
 
+      {/* Formula table with DnD */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-left px-4 py-3 font-medium">配方編號</th>
-                <th className="text-left px-4 py-3 font-medium">配方名稱</th>
-                <th className="text-left px-4 py-3 font-medium">對應通路</th>
-                <th className="text-left px-4 py-3 font-medium">每份規格</th>
-                <th className="text-left px-4 py-3 font-medium">原料數</th>
-                <th className="text-left px-4 py-3 font-medium">備註</th>
-                <th className="text-left px-4 py-3 font-medium">最後更新</th>
-                <th className="text-right px-4 py-3 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {formulas.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">尚無配方，請新增</td></tr>
-              )}
-              {formulas.map(f => {
-                const ch = channels.find(c => c.id === f.channelId);
-                return (
-                  <tr key={f.id} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => navigate(`/editor?formula=${f.id}`)}>
-                    <td className="px-4 py-3 font-mono">{f.code}</td>
-                    <td className="px-4 py-3">{f.name}</td>
-                    <td className="px-4 py-3">{ch?.name || '-'}</td>
-                    <td className="px-4 py-3">{f.servingSize ? `${f.servingSize}g` : '-'}</td>
-                    <td className="px-4 py-3">{f.ingredients.length}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{f.note || '-'}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {new Date(f.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })}
-                    </td>
-                    <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(f)} title="編輯配方">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleCopy(f)} title="複製配方">
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleExport(f)} title="匯出 Excel">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(f.id)} title="刪除">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="w-8 px-2 py-3"></th>
+                  <th className="text-left px-4 py-3 font-medium">配方編號</th>
+                  <th className="text-left px-4 py-3 font-medium">配方名稱</th>
+                  <th className="text-left px-4 py-3 font-medium">對應通路</th>
+                  <th className="text-left px-4 py-3 font-medium">每份規格</th>
+                  <th className="text-left px-4 py-3 font-medium">原料數</th>
+                  <th className="text-left px-4 py-3 font-medium">備註</th>
+                  <th className="text-left px-4 py-3 font-medium">最後更新</th>
+                  <th className="text-right px-4 py-3 font-medium">操作</th>
+                </tr>
+              </thead>
+              <SortableContext items={filteredFormulas.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                <tbody>
+                  {filteredFormulas.length === 0 && (
+                    <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">
+                      {formulas.length === 0 ? '尚無配方，請新增' : '無符合條件的配方'}
+                    </td></tr>
+                  )}
+                  {filteredFormulas.map(f => {
+                    const ch = channels.find(c => c.id === f.channelId);
+                    return (
+                      <SortableFormulaRow
+                        key={f.id}
+                        formula={f}
+                        channelName={ch?.name || '-'}
+                        onEdit={openEdit}
+                        onCopy={handleCopy}
+                        onExport={handleExport}
+                        onDelete={handleDelete}
+                        onNavigate={(id) => navigate(`/editor?formula=${id}`)}
+                      />
+                    );
+                  })}
+                </tbody>
+              </SortableContext>
+            </table>
+          </DndContext>
         </div>
       </Card>
 
