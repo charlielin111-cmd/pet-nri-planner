@@ -1,16 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppContext } from '@/contexts/AppContext';
-import { FormulaIngredient, FormulaSummaryItem, ValidationResult, NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
+import { FormulaIngredient, FormulaSummaryItem, ValidationResult, NUTRIENT_CATEGORY_LABELS, FormulaVersion } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X, Percent, Weight, Download, Info } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X, Percent, Weight, Download, Info, History, FileText, RotateCcw } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -18,6 +20,8 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const PIE_COLORS = [
   'hsl(210, 90%, 50%)', 'hsl(170, 60%, 45%)', 'hsl(38, 92%, 50%)',
@@ -117,7 +121,7 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
 };
 
 const FormulaEditorPage: React.FC = () => {
-  const { ingredients, channels, formulas, nutrients, saveFormula } = useAppContext();
+  const { ingredients, channels, formulas, nutrients, saveFormula, getFormulaVersions, restoreFormulaVersion } = useAppContext();
   const [searchParams] = useSearchParams();
   const formulaId = searchParams.get('formula');
 
@@ -128,6 +132,12 @@ const FormulaEditorPage: React.FC = () => {
   const [summaryItems, setSummaryItems] = useState<FormulaSummaryItem[]>(DEFAULT_SUMMARY_ITEMS);
   const [summaryEditOpen, setSummaryEditOpen] = useState(false);
   const [usePercent, setUsePercent] = useState(false);
+
+  // Version control state
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [patchNotes, setPatchNotes] = useState('');
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [versions, setVersions] = useState<FormulaVersion[]>([]);
 
   const selectedFormula = formulas.find(f => f.id === selectedFormulaId);
 
@@ -184,7 +194,6 @@ const FormulaEditorPage: React.FC = () => {
     }
   };
 
-  // Totals: nutrients are per 100g, so contribution = (nutrient_per_100g / 100) * amount_g
   const totals = useMemo(() => {
     const result: Record<string, number> = {};
     formulaIngredients.forEach(fi => {
@@ -200,7 +209,6 @@ const FormulaEditorPage: React.FC = () => {
     return result;
   }, [formulaIngredients, ingredients, nutrients]);
 
-  // Total calories of formula (sum of each ingredient's kcal contribution)
   const totalCalories = useMemo(() => {
     return formulaIngredients.reduce((sum, fi) => {
       const ing = ingredients.find(i => i.id === fi.ingredientId);
@@ -221,7 +229,6 @@ const FormulaEditorPage: React.FC = () => {
     return `${val.toFixed(2)} ${n?.unit || ''}`;
   };
 
-  // Nutrient options for summary editor
   const availableForSummary = useMemo(() => {
     const special = [{ id: 'ca_ph_ratio', label: '鈣磷比 (鈣/磷)' }];
     const fromNutrients = nutrients.map(n => ({ id: n.id, label: `${n.name} (${n.unit})` }));
@@ -250,7 +257,6 @@ const FormulaEditorPage: React.FC = () => {
 
   const totalPieValue = pieData.reduce((s, d) => s + d.value, 0);
 
-  // Ingredient weight distribution pie data
   const ingredientPieData = useMemo(() => {
     return formulaIngredients
       .filter(fi => fi.amount > 0)
@@ -262,8 +268,21 @@ const FormulaEditorPage: React.FC = () => {
 
   const totalWeight = ingredientPieData.reduce((s, d) => s + d.value, 0);
 
+  // Cost data
+  const costData = useMemo(() => {
+    return formulaIngredients
+      .filter(fi => fi.amount > 0)
+      .map(fi => {
+        const ing = ingredients.find(i => i.id === fi.ingredientId);
+        const cost = ing ? fi.amount * ing.pricePerGram : 0;
+        return { name: ing?.name || '未知', value: parseFloat(cost.toFixed(4)) };
+      })
+      .filter(d => d.value > 0);
+  }, [formulaIngredients, ingredients]);
+
+  const totalCost = costData.reduce((s, d) => s + d.value, 0);
+
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
-  // Validation: convert totals to per-1000kcal for channel limit comparison
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
     if (totalCalories <= 0) return [];
@@ -286,7 +305,14 @@ const FormulaEditorPage: React.FC = () => {
 
   const failures = validationResults.filter(r => !r.passed);
 
-  const handleSave = async () => {
+  // Save with version control
+  const handleSaveClick = () => {
+    if (!selectedFormula) return;
+    setSaveDialogOpen(true);
+    setPatchNotes('');
+  };
+
+  const handleConfirmSave = async () => {
     if (!selectedFormula) return;
     await saveFormula({
       ...selectedFormula,
@@ -294,13 +320,26 @@ const FormulaEditorPage: React.FC = () => {
       channelId: selectedChannelId,
       summaryItems,
       updatedAt: new Date().toISOString(),
-    });
-    toast.success('配方已儲存');
+    }, patchNotes);
+    setSaveDialogOpen(false);
+    toast.success('配方已儲存（版本已建立）');
+  };
+
+  const handleShowVersions = async () => {
+    if (!selectedFormulaId) return;
+    const v = await getFormulaVersions(selectedFormulaId);
+    setVersions(v);
+    setVersionHistoryOpen(true);
+  };
+
+  const handleRestoreVersion = async (version: FormulaVersion) => {
+    await restoreFormulaVersion(version);
+    setVersionHistoryOpen(false);
+    toast.success(`已還原至版本 v${version.version}`);
   };
 
   const handleExport = () => {
     if (!selectedFormula || formulaIngredients.length === 0) return;
-    // Sheet 1: ingredient composition
     const ingRows = formulaIngredients.map(fi => {
       const ing = ingredients.find(i => i.id === fi.ingredientId);
       return {
@@ -317,7 +356,6 @@ const FormulaEditorPage: React.FC = () => {
       '佔比 (%)': 100,
     });
 
-    // Sheet 2: nutrient totals
     const nutRows = nutrients.map(n => ({
       '營養素': n.name,
       '單位': n.unit,
@@ -331,7 +369,131 @@ const FormulaEditorPage: React.FC = () => {
     toast.success('已匯出 Excel');
   };
 
-  // Build nutrient popover for an ingredient
+  // PDF spec sheet export
+  const handleExportPDF = () => {
+    if (!selectedFormula || formulaIngredients.length === 0) return;
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    // Use built-in helvetica for structure, but note Chinese chars need special handling
+    // jsPDF doesn't natively support CJK. We use a workaround with unicode text rendering.
+    doc.setFont('helvetica');
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = 20;
+
+    // Title
+    doc.setFontSize(18);
+    doc.text(`Product Spec Sheet`, margin, y);
+    y += 8;
+    doc.setFontSize(11);
+    doc.text(`Formula: ${selectedFormula.code} - ${selectedFormula.name}`, margin, y);
+    y += 5;
+    const channelName = channels.find(c => c.id === selectedChannelId)?.name || 'N/A';
+    doc.text(`Channel: ${channelName}`, margin, y);
+    y += 5;
+    if (selectedFormula.servingSize) {
+      doc.text(`Serving Size: ${selectedFormula.servingSize}g`, margin, y);
+      y += 5;
+    }
+    doc.text(`Date: ${new Date().toLocaleDateString('zh-TW')}`, margin, y);
+    y += 5;
+    doc.text(`Total Weight: ${totalWeight.toFixed(3)}g | Total Cost: $${totalCost.toFixed(4)} | Calories: ${totalCalories.toFixed(2)} kcal`, margin, y);
+    y += 10;
+
+    // Ingredient table
+    doc.setFontSize(13);
+    doc.text('Ingredient Composition', margin, y);
+    y += 2;
+
+    const ingTableData = formulaIngredients.map(fi => {
+      const ing = ingredients.find(i => i.id === fi.ingredientId);
+      const base = selectedFormula?.servingSize || totalWeight;
+      const pct = base > 0 ? ((fi.amount / base) * 100).toFixed(3) : '0';
+      const cost = ing ? (fi.amount * ing.pricePerGram).toFixed(4) : '0';
+      return [ing?.materialCode || '', ing?.name || 'Unknown', fi.amount.toFixed(3), `${pct}%`, `$${cost}`];
+    });
+    ingTableData.push(['', 'Total', totalWeight.toFixed(3), '', `$${totalCost.toFixed(4)}`]);
+
+    (doc as any).autoTable({
+      startY: y,
+      head: [['Code', 'Ingredient', 'Amount (g)', 'Ratio (%)', 'Cost']],
+      body: ingTableData,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // Nutrient analysis table
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Nutrient Analysis', margin, y);
+    y += 2;
+
+    const nutTableData = nutrients
+      .filter(n => totals[n.id] !== undefined)
+      .map(n => [n.name, n.nameEn, totals[n.id].toFixed(4), n.unit]);
+
+    (doc as any).autoTable({
+      startY: y,
+      head: [['Nutrient', 'Name (EN)', 'Amount', 'Unit']],
+      body: nutTableData,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [16, 185, 129] },
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // Cost breakdown table
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Cost Breakdown', margin, y);
+    y += 2;
+
+    const costTableData = costData.map(d => {
+      const costPct = totalCost > 0 ? ((d.value / totalCost) * 100).toFixed(1) : '0';
+      return [d.name, `$${d.value.toFixed(4)}`, `${costPct}%`];
+    });
+    costTableData.push(['Total', `$${totalCost.toFixed(4)}`, '100%']);
+
+    (doc as any).autoTable({
+      startY: y,
+      head: [['Ingredient', 'Cost', 'Ratio']],
+      body: costTableData,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [245, 158, 11] },
+    });
+
+    // Validation results
+    if (failures.length > 0) {
+      y = (doc as any).lastAutoTable.finalY + 10;
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(13);
+      doc.text('Validation Failures', margin, y);
+      y += 2;
+
+      const failData = failures.map(f => {
+        const limitStr = f.limit.type === 'min' ? `>= ${f.limit.min}` : f.limit.type === 'max' ? `<= ${f.limit.max}` : `${f.limit.min} ~ ${f.limit.max}`;
+        return [f.nutrientName, f.value.toFixed(4), f.unit, limitStr];
+      });
+
+      (doc as any).autoTable({
+        startY: y,
+        head: [['Nutrient', 'Value', 'Unit', 'Limit']],
+        body: failData,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [239, 68, 68] },
+      });
+    }
+
+    doc.save(`Spec_${selectedFormula.code}_${selectedFormula.name}.pdf`);
+    toast.success('已匯出 PDF 規格書');
+  };
+
   const renderNutrientPopover = (ingredientId: string) => {
     const ing = ingredients.find(i => i.id === ingredientId);
     if (!ing) return null;
@@ -379,7 +541,7 @@ const FormulaEditorPage: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">配方組成</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <Select value={selectedFormulaId} onValueChange={setSelectedFormulaId}>
             <SelectTrigger className="w-52"><SelectValue placeholder="選擇配方" /></SelectTrigger>
             <SelectContent>
@@ -392,14 +554,83 @@ const FormulaEditorPage: React.FC = () => {
               {channels.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={!selectedFormula || formulaIngredients.length === 0} className="gap-1.5">
-            <Download className="h-4 w-4" /> 匯出
+          <Button variant="outline" size="sm" onClick={handleShowVersions} disabled={!selectedFormulaId} className="gap-1.5">
+            <History className="h-4 w-4" /> 版本
           </Button>
-          <Button onClick={handleSave} disabled={!selectedFormula} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={!selectedFormula || formulaIngredients.length === 0} className="gap-1.5">
+            <Download className="h-4 w-4" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={!selectedFormula || formulaIngredients.length === 0} className="gap-1.5">
+            <FileText className="h-4 w-4" /> PDF
+          </Button>
+          <Button onClick={handleSaveClick} disabled={!selectedFormula} className="gap-1.5">
             <Save className="h-4 w-4" /> 儲存
           </Button>
         </div>
       </div>
+
+      {/* Save dialog with patch notes */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>儲存配方並建立版本</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">變更紀錄（選填）</label>
+              <Textarea
+                value={patchNotes}
+                onChange={e => setPatchNotes(e.target.value)}
+                placeholder="例如：調整雞肉粉比例至35%，替換魚油為亞麻籽油..."
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>取消</Button>
+            <Button onClick={handleConfirmSave} className="gap-1.5"><Save className="h-4 w-4" /> 確認儲存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Version history dialog */}
+      <Dialog open={versionHistoryOpen} onOpenChange={setVersionHistoryOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>版本歷程 — {selectedFormula?.code} {selectedFormula?.name}</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {versions.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">尚無版本紀錄</p>
+            ) : (
+              <div className="space-y-2 pr-2">
+                {versions.map(v => (
+                  <Card key={v.id} className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-mono font-bold text-sm">v{v.version}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {new Date(v.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+                        </span>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => handleRestoreVersion(v)} className="gap-1 text-xs h-7">
+                        <RotateCcw className="h-3 w-3" /> 還原
+                      </Button>
+                    </div>
+                    {v.patchNotes && (
+                      <p className="text-xs text-muted-foreground mt-1 bg-muted/50 rounded px-2 py-1">{v.patchNotes}</p>
+                    )}
+                    <div className="text-xs text-muted-foreground mt-1">
+                      原料數: {v.snapshot.ingredients.length}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       {/* Summary bar - editable */}
       <Card className="p-4">
@@ -410,7 +641,6 @@ const FormulaEditorPage: React.FC = () => {
           </Button>
         </div>
         <div className="flex gap-4 items-start">
-          {/* Ingredient weight pie chart */}
           <div className="shrink-0 w-48">
             <div className="text-xs text-muted-foreground mb-1 text-center">原料佔比</div>
             {ingredientPieData.length > 0 ? (
@@ -426,7 +656,6 @@ const FormulaEditorPage: React.FC = () => {
               <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">尚無原料</div>
             )}
           </div>
-          {/* Summary items grid */}
           <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {summaryItems.map(item => (
               <div key={item.id} className="bg-muted/50 rounded-lg px-3 py-2.5 text-center">
@@ -506,7 +735,6 @@ const FormulaEditorPage: React.FC = () => {
               <p className="text-sm text-muted-foreground py-4 text-center">搜尋並選取原料加入配方</p>
             ) : (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                {/* Total summary bar */}
                 <div className="flex items-center justify-between px-3 py-2 mb-2 rounded-md bg-muted/60 border">
                   <span className="text-sm font-semibold text-foreground">
                     成分加總 {selectedFormula?.servingSize ? <span className="text-xs font-normal text-muted-foreground">(每份規格: {selectedFormula.servingSize}g)</span> : null}
@@ -578,6 +806,41 @@ const FormulaEditorPage: React.FC = () => {
               </>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">加入原料後顯示圖表</p>
+            )}
+          </Card>
+
+          {/* Cost pie chart */}
+          <Card className="p-4">
+            <h3 className="text-sm font-medium mb-3">成本組成圖</h3>
+            {costData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie data={costData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={40}>
+                      {costData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Legend />
+                    <Tooltip formatter={(value: number, name: string) => [`$${value.toFixed(4)} (${totalCost > 0 ? ((value / totalCost) * 100).toFixed(1) : 0}%)`, name]} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-1 mt-2">
+                  {costData.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span>{d.name}</span>
+                      </div>
+                      <span className="font-medium">${d.value.toFixed(4)} ({totalCost > 0 ? ((d.value / totalCost) * 100).toFixed(1) : 0}%)</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between text-xs font-bold pt-1 border-t">
+                    <span>合計</span>
+                    <span>${totalCost.toFixed(4)}</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">加入原料後顯示成本圖表</p>
             )}
           </Card>
 
