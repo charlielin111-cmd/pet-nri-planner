@@ -386,6 +386,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       canUndo: undoStack.current.length > 0, undoCount,
       refreshAll, saveIngredient, deleteIngredient,
       saveChannel, deleteChannel, saveFormula, deleteFormula, saveNutrients,
+      getFormulaVersions, restoreFormulaVersion,
       undo, exportAllData, importAllData, previewImportDiff, importSelective,
     }}>
       {children}
