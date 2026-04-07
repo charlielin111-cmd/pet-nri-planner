@@ -39,9 +39,11 @@ interface AppContextType {
   deleteIngredient: (id: string) => Promise<void>;
   saveChannel: (item: MarketChannel) => Promise<void>;
   deleteChannel: (id: string) => Promise<void>;
-  saveFormula: (item: Formula) => Promise<void>;
+  saveFormula: (item: Formula, patchNotes?: string) => Promise<void>;
   deleteFormula: (id: string) => Promise<void>;
   saveNutrients: (items: NutrientDefinition[]) => Promise<void>;
+  getFormulaVersions: (formulaId: string) => Promise<FormulaVersion[]>;
+  restoreFormulaVersion: (version: FormulaVersion) => Promise<void>;
   undo: () => Promise<void>;
   exportAllData: () => Promise<string>;
   importAllData: (json: string, mode?: 'overwrite' | 'update') => Promise<void>;
