@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Ingredient, MarketChannel, Formula, NutrientDefinition } from '@/lib/types';
+import { Ingredient, MarketChannel, Formula, NutrientDefinition, FormulaVersion } from '@/lib/types';
 import { DEFAULT_NUTRIENTS } from '@/lib/nutrients';
 import * as db from '@/lib/db';
 
@@ -39,9 +39,11 @@ interface AppContextType {
   deleteIngredient: (id: string) => Promise<void>;
   saveChannel: (item: MarketChannel) => Promise<void>;
   deleteChannel: (id: string) => Promise<void>;
-  saveFormula: (item: Formula) => Promise<void>;
+  saveFormula: (item: Formula, patchNotes?: string) => Promise<void>;
   deleteFormula: (id: string) => Promise<void>;
   saveNutrients: (items: NutrientDefinition[]) => Promise<void>;
+  getFormulaVersions: (formulaId: string) => Promise<FormulaVersion[]>;
+  restoreFormulaVersion: (version: FormulaVersion) => Promise<void>;
   undo: () => Promise<void>;
   exportAllData: () => Promise<string>;
   importAllData: (json: string, mode?: 'overwrite' | 'update') => Promise<void>;
@@ -151,9 +153,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await refreshAll();
   };
 
-  const saveFormula = async (item: Formula) => {
+  const saveFormula = async (item: Formula, patchNotes?: string) => {
     pushUndo();
+    // Auto-create version
+    const existingVersions = await db.getAllByIndex<FormulaVersion>('formulaVersions', 'formulaId', item.id);
+    const nextVersion = existingVersions.length > 0 ? Math.max(...existingVersions.map(v => v.version)) + 1 : 1;
+    const version: FormulaVersion = {
+      id: `${item.id}_v${nextVersion}_${Date.now()}`,
+      formulaId: item.id,
+      version: nextVersion,
+      patchNotes: patchNotes || '',
+      snapshot: { ...item },
+      createdAt: new Date().toISOString(),
+    };
+    await db.putItem('formulaVersions', version);
     await db.putItem('formulas', item);
+    await updateTime();
+    await refreshAll();
+  };
+
+  const getFormulaVersions = async (formulaId: string): Promise<FormulaVersion[]> => {
+    const versions = await db.getAllByIndex<FormulaVersion>('formulaVersions', 'formulaId', formulaId);
+    return versions.sort((a, b) => b.version - a.version);
+  };
+
+  const restoreFormulaVersion = async (version: FormulaVersion) => {
+    pushUndo();
+    await db.putItem('formulas', { ...version.snapshot, updatedAt: new Date().toISOString() });
     await updateTime();
     await refreshAll();
   };
@@ -360,6 +386,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       canUndo: undoStack.current.length > 0, undoCount,
       refreshAll, saveIngredient, deleteIngredient,
       saveChannel, deleteChannel, saveFormula, deleteFormula, saveNutrients,
+      getFormulaVersions, restoreFormulaVersion,
       undo, exportAllData, importAllData, previewImportDiff, importSelective,
     }}>
       {children}

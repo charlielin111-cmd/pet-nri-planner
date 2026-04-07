@@ -1,5 +1,5 @@
 const DB_NAME = 'petfood-nutrition-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -11,8 +11,21 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('formulas')) db.createObjectStore('formulas', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('nutrients')) db.createObjectStore('nutrients', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('formulaVersions')) db.createObjectStore('formulaVersions', { keyPath: 'id' });
     };
     req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getAllByIndex<T>(storeName: string, key: string, value: string): Promise<T[]> {
+  const store = await getStore(storeName);
+  return new Promise((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const results = (req.result as any[]).filter(item => item[key] === value);
+      resolve(results as T[]);
+    };
     req.onerror = () => reject(req.error);
   });
 }
