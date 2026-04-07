@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Ingredient, MarketChannel, Formula, NutrientDefinition } from '@/lib/types';
+import { Ingredient, MarketChannel, Formula, NutrientDefinition, FormulaVersion } from '@/lib/types';
 import { DEFAULT_NUTRIENTS } from '@/lib/nutrients';
 import * as db from '@/lib/db';
 
