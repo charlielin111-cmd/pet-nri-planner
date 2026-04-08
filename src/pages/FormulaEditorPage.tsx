@@ -600,9 +600,10 @@ const FormulaEditorPage: React.FC = () => {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>取消</Button>
-            <Button onClick={handleConfirmSave} className="gap-1.5"><Save className="h-4 w-4" /> 確認儲存</Button>
+            <Button variant="secondary" onClick={handleUpdateCurrentVersion} className="gap-1.5"><Save className="h-4 w-4" /> 更新目前版次</Button>
+            <Button onClick={handleCreateNewVersion} className="gap-1.5"><Plus className="h-4 w-4" /> 建立新版次</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
