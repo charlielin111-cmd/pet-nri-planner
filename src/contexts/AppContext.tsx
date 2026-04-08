@@ -103,9 +103,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await db.setMeta('lastUpdate', t);
   }, []);
 
+  // Auto-sync to localStorage whenever data changes
+  const syncToLocalStorage = useCallback((ings: Ingredient[], chs: MarketChannel[], forms: Formula[], nuts: NutrientDefinition[]) => {
+    try {
+      localStorage.setItem('petNri_ingredients', JSON.stringify(ings));
+      localStorage.setItem('petNri_channels', JSON.stringify(chs));
+      localStorage.setItem('petNri_formulas', JSON.stringify(forms));
+      localStorage.setItem('petNri_nutrients', JSON.stringify(nuts));
+      localStorage.setItem('petNri_lastSync', new Date().toISOString());
+    } catch (e) {
+      console.warn('localStorage sync failed:', e);
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
+      // Try loading from localStorage first (faster initial load)
+      const lsIngs = localStorage.getItem('petNri_ingredients');
+      const lsChs = localStorage.getItem('petNri_channels');
+      const lsForms = localStorage.getItem('petNri_formulas');
+      const lsNuts = localStorage.getItem('petNri_nutrients');
+
       const [ings, chs, forms, nuts, meta] = await Promise.all([
         db.getAll<Ingredient>('ingredients'),
         db.getAll<MarketChannel>('channels'),
@@ -113,15 +132,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         db.getAll<NutrientDefinition>('nutrients'),
         db.getMeta('lastUpdate'),
       ]);
-      setIngredients(ings.sort((a, b) => a.materialCode.localeCompare(b.materialCode)));
-      setChannels(chs);
-      setFormulas(forms);
-      if (nuts.length > 0) setNutrients(nuts.sort((a, b) => a.order - b.order));
+
+      // Use IndexedDB data if available, otherwise fall back to localStorage
+      const finalIngs = ings.length > 0 ? ings : (lsIngs ? JSON.parse(lsIngs) as Ingredient[] : []);
+      const finalChs = chs.length > 0 ? chs : (lsChs ? JSON.parse(lsChs) as MarketChannel[] : []);
+      const finalForms = forms.length > 0 ? forms : (lsForms ? JSON.parse(lsForms) as Formula[] : []);
+      const finalNuts = nuts.length > 0 ? nuts : (lsNuts ? JSON.parse(lsNuts) as NutrientDefinition[] : []);
+
+      // If IndexedDB was empty but localStorage had data, restore to IndexedDB
+      if (ings.length === 0 && lsIngs && finalIngs.length > 0) {
+        for (const item of finalIngs) await db.putItem('ingredients', item);
+      }
+      if (chs.length === 0 && lsChs && finalChs.length > 0) {
+        for (const item of finalChs) await db.putItem('channels', item);
+      }
+      if (forms.length === 0 && lsForms && finalForms.length > 0) {
+        for (const item of finalForms) await db.putItem('formulas', item);
+      }
+      if (nuts.length === 0 && lsNuts && finalNuts.length > 0) {
+        for (const item of finalNuts) await db.putItem('nutrients', item);
+      }
+
+      const sortedIngs = finalIngs.sort((a, b) => a.materialCode.localeCompare(b.materialCode));
+      const sortedNuts = finalNuts.length > 0 ? finalNuts.sort((a, b) => a.order - b.order) : DEFAULT_NUTRIENTS;
+
+      setIngredients(sortedIngs);
+      setChannels(finalChs);
+      setFormulas(finalForms);
+      setNutrients(sortedNuts);
       if (meta) setLastUpdate(meta);
+
+      // Sync to localStorage
+      syncToLocalStorage(sortedIngs, finalChs, finalForms, sortedNuts);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncToLocalStorage]);
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
 

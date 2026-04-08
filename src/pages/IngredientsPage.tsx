@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Pencil, ChevronDown, Search, Settings2, Save, Download, HardDrive } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronDown, Search, Settings2, Save, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -148,7 +148,7 @@ const IngredientsPage: React.FC = () => {
     return `$${raw}/g`;
   };
 
-  const handleSaveToLocal = () => {
+  const handleExportBackup = () => {
     const data = JSON.stringify(ingredients, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -157,7 +157,7 @@ const IngredientsPage: React.FC = () => {
     a.download = `原料備份_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('原料資料已儲存至本機');
+    toast.success('原料備份已匯出');
   };
 
   return (
@@ -165,8 +165,8 @@ const IngredientsPage: React.FC = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">原料設定</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleSaveToLocal} className="gap-1.5">
-            <HardDrive className="h-4 w-4" /> 儲存至本機
+          <Button variant="outline" size="sm" onClick={handleExportBackup} className="gap-1.5">
+            <Download className="h-4 w-4" /> 備份匯出
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportIngredients} className="gap-1.5">
             <Download className="h-4 w-4" /> 匯出

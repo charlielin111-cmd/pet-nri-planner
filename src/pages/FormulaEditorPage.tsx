@@ -138,8 +138,24 @@ const FormulaEditorPage: React.FC = () => {
   const [patchNotes, setPatchNotes] = useState('');
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [versions, setVersions] = useState<FormulaVersion[]>([]);
+  const [currentVersion, setCurrentVersion] = useState<number | null>(null);
 
   const selectedFormula = formulas.find(f => f.id === selectedFormulaId);
+
+  // Load current version number when formula changes
+  useEffect(() => {
+    if (selectedFormulaId) {
+      getFormulaVersions(selectedFormulaId).then(v => {
+        if (v.length > 0) {
+          setCurrentVersion(Math.max(...v.map(ver => ver.version)));
+        } else {
+          setCurrentVersion(null);
+        }
+      });
+    } else {
+      setCurrentVersion(null);
+    }
+  }, [selectedFormulaId, formulas, getFormulaVersions]);
 
   useEffect(() => {
     if (selectedFormula) {
@@ -566,7 +582,19 @@ const FormulaEditorPage: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">配方組成</h1>
+        <div>
+          <h1 className="text-2xl font-bold">
+            配方組成
+            {selectedFormula && (
+              <span className="text-lg font-normal text-muted-foreground ml-2">
+                — {selectedFormula.name}
+                {currentVersion !== null && (
+                  <span className="ml-1.5 text-sm font-mono bg-muted px-1.5 py-0.5 rounded">v{currentVersion}</span>
+                )}
+              </span>
+            )}
+          </h1>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={selectedFormulaId} onValueChange={setSelectedFormulaId}>
             <SelectTrigger className="w-52"><SelectValue placeholder="選擇配方" /></SelectTrigger>
