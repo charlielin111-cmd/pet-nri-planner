@@ -383,14 +383,25 @@ const FormulaEditorPage: React.FC = () => {
   };
 
   // PDF spec sheet export
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (!selectedFormula || formulaIngredients.length === 0) return;
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    // Use built-in helvetica for structure, but note Chinese chars need special handling
-    // jsPDF doesn't natively support CJK. We use a workaround with unicode text rendering.
-    doc.setFont('helvetica');
+    // Load Chinese font
+    try {
+      const fontUrl = 'https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-tc@latest/chinese-traditional-400-normal.ttf';
+      const response = await fetch(fontUrl);
+      const fontBuffer = await response.arrayBuffer();
+      const fontBase64 = btoa(String.fromCharCode(...new Uint8Array(fontBuffer)));
+      doc.addFileToVFS('NotoSansTC-Regular.ttf', fontBase64);
+      doc.addFont('NotoSansTC-Regular.ttf', 'NotoSansTC', 'normal');
+      doc.setFont('NotoSansTC');
+    } catch {
+      // Fallback to helvetica if font loading fails
+      doc.setFont('helvetica');
+      toast.warning('中文字型載入失敗，部分中文可能無法正確顯示');
+    }
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 15;
@@ -398,26 +409,28 @@ const FormulaEditorPage: React.FC = () => {
 
     // Title
     doc.setFontSize(18);
-    doc.text(`Product Spec Sheet`, margin, y);
+    doc.text(`產品規格書`, margin, y);
     y += 8;
     doc.setFontSize(11);
-    doc.text(`Formula: ${selectedFormula.code} - ${selectedFormula.name}`, margin, y);
+    doc.text(`配方: ${selectedFormula.code} - ${selectedFormula.name}`, margin, y);
     y += 5;
     const channelName = channels.find(c => c.id === selectedChannelId)?.name || 'N/A';
-    doc.text(`Channel: ${channelName}`, margin, y);
+    doc.text(`通路: ${channelName}`, margin, y);
     y += 5;
     if (selectedFormula.servingSize) {
-      doc.text(`Serving Size: ${selectedFormula.servingSize}g`, margin, y);
+      doc.text(`每份規格: ${selectedFormula.servingSize}g`, margin, y);
       y += 5;
     }
-    doc.text(`Date: ${new Date().toLocaleDateString('zh-TW')}`, margin, y);
+    doc.text(`日期: ${new Date().toLocaleDateString('zh-TW')}`, margin, y);
     y += 5;
-    doc.text(`Total Weight: ${totalWeight.toFixed(3)}g | Total Cost: $${totalCost.toFixed(4)} | Calories: ${totalCalories.toFixed(2)} kcal`, margin, y);
+    doc.text(`總重量: ${totalWeight.toFixed(3)}g | 總成本: $${totalCost.toFixed(4)} | 熱量: ${totalCalories.toFixed(2)} kcal`, margin, y);
     y += 10;
+
+    const fontName = doc.getFont().fontName;
 
     // Ingredient table
     doc.setFontSize(13);
-    doc.text('Ingredient Composition', margin, y);
+    doc.text('配方原料組成', margin, y);
     y += 2;
 
     const ingTableData = formulaIngredients.map(fi => {
@@ -425,24 +438,24 @@ const FormulaEditorPage: React.FC = () => {
       const base = selectedFormula?.servingSize || totalWeight;
       const pct = base > 0 ? ((fi.amount / base) * 100).toFixed(3) : '0';
       const cost = ing ? (fi.amount * ing.pricePerGram).toFixed(4) : '0';
-      return [ing?.materialCode || '', ing?.name || 'Unknown', fi.amount.toFixed(3), `${pct}%`, `$${cost}`];
+      return [ing?.materialCode || '', ing?.name || '未知', fi.amount.toFixed(3), `${pct}%`, `$${cost}`];
     });
-    ingTableData.push(['', 'Total', totalWeight.toFixed(3), '', `$${totalCost.toFixed(4)}`]);
+    ingTableData.push(['', '合計', totalWeight.toFixed(3), '', `$${totalCost.toFixed(4)}`]);
 
     (doc as any).autoTable({
       startY: y,
-      head: [['Code', 'Ingredient', 'Amount (g)', 'Ratio (%)', 'Cost']],
+      head: [['編號', '原料名稱', '用量 (g)', '佔比 (%)', '成本']],
       body: ingTableData,
       margin: { left: margin, right: margin },
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [59, 130, 246] },
+      styles: { fontSize: 9, font: fontName },
+      headStyles: { fillColor: [59, 130, 246], font: fontName },
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
     // Nutrient analysis table
     if (y > 240) { doc.addPage(); y = 20; }
     doc.setFontSize(13);
-    doc.text('Nutrient Analysis', margin, y);
+    doc.text('營養成分分析', margin, y);
     y += 2;
 
     const nutTableData = nutrients
@@ -451,33 +464,33 @@ const FormulaEditorPage: React.FC = () => {
 
     (doc as any).autoTable({
       startY: y,
-      head: [['Nutrient', 'Name (EN)', 'Amount', 'Unit']],
+      head: [['營養素', '英文名', '含量', '單位']],
       body: nutTableData,
       margin: { left: margin, right: margin },
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [16, 185, 129] },
+      styles: { fontSize: 9, font: fontName },
+      headStyles: { fillColor: [16, 185, 129], font: fontName },
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
     // Cost breakdown table
     if (y > 240) { doc.addPage(); y = 20; }
     doc.setFontSize(13);
-    doc.text('Cost Breakdown', margin, y);
+    doc.text('成本明細', margin, y);
     y += 2;
 
     const costTableData = costData.map(d => {
       const costPct = totalCost > 0 ? ((d.value / totalCost) * 100).toFixed(1) : '0';
       return [d.name, `$${d.value.toFixed(4)}`, `${costPct}%`];
     });
-    costTableData.push(['Total', `$${totalCost.toFixed(4)}`, '100%']);
+    costTableData.push(['合計', `$${totalCost.toFixed(4)}`, '100%']);
 
     (doc as any).autoTable({
       startY: y,
-      head: [['Ingredient', 'Cost', 'Ratio']],
+      head: [['原料', '成本', '佔比']],
       body: costTableData,
       margin: { left: margin, right: margin },
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [245, 158, 11] },
+      styles: { fontSize: 9, font: fontName },
+      headStyles: { fillColor: [245, 158, 11], font: fontName },
     });
 
     // Validation results
@@ -485,7 +498,7 @@ const FormulaEditorPage: React.FC = () => {
       y = (doc as any).lastAutoTable.finalY + 10;
       if (y > 240) { doc.addPage(); y = 20; }
       doc.setFontSize(13);
-      doc.text('Validation Failures', margin, y);
+      doc.text('法規校核失敗項目', margin, y);
       y += 2;
 
       const failData = failures.map(f => {
@@ -495,15 +508,15 @@ const FormulaEditorPage: React.FC = () => {
 
       (doc as any).autoTable({
         startY: y,
-        head: [['Nutrient', 'Value', 'Unit', 'Limit']],
+        head: [['營養素', '數值', '單位', '限制']],
         body: failData,
         margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [239, 68, 68] },
+        styles: { fontSize: 9, font: fontName },
+        headStyles: { fillColor: [239, 68, 68], font: fontName },
       });
     }
 
-    doc.save(`Spec_${selectedFormula.code}_${selectedFormula.name}.pdf`);
+    doc.save(`規格書_${selectedFormula.code}_${selectedFormula.name}.pdf`);
     toast.success('已匯出 PDF 規格書');
   };
 
