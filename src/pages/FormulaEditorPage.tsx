@@ -312,7 +312,7 @@ const FormulaEditorPage: React.FC = () => {
     setPatchNotes('');
   };
 
-  const handleConfirmSave = async () => {
+  const handleUpdateCurrentVersion = async () => {
     if (!selectedFormula) return;
     await saveFormula({
       ...selectedFormula,
@@ -320,9 +320,22 @@ const FormulaEditorPage: React.FC = () => {
       channelId: selectedChannelId,
       summaryItems,
       updatedAt: new Date().toISOString(),
-    }, patchNotes);
+    }, patchNotes, true);
     setSaveDialogOpen(false);
-    toast.success('配方已儲存（版本已建立）');
+    toast.success('已更新目前版次');
+  };
+
+  const handleCreateNewVersion = async () => {
+    if (!selectedFormula) return;
+    await saveFormula({
+      ...selectedFormula,
+      ingredients: formulaIngredients,
+      channelId: selectedChannelId,
+      summaryItems,
+      updatedAt: new Date().toISOString(),
+    }, patchNotes, false);
+    setSaveDialogOpen(false);
+    toast.success('配方已儲存（新版次已建立）');
   };
 
   const handleShowVersions = async () => {
