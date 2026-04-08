@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical, HardDrive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -221,9 +221,26 @@ const FormulasPage: React.FC = () => {
     toast.success('排序已更新');
   };
 
+  const handleSaveToLocal = () => {
+    const data = JSON.stringify(formulas, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `配方備份_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('配方資料已儲存至本機');
+  };
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">配方管理</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold">配方管理</h1>
+        <Button variant="outline" size="sm" onClick={handleSaveToLocal} className="gap-1.5">
+          <HardDrive className="h-4 w-4" /> 儲存至本機
+        </Button>
+      </div>
 
       {/* Search & Filter */}
       <Card className="p-4">

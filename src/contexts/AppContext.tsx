@@ -39,7 +39,7 @@ interface AppContextType {
   deleteIngredient: (id: string) => Promise<void>;
   saveChannel: (item: MarketChannel) => Promise<void>;
   deleteChannel: (id: string) => Promise<void>;
-  saveFormula: (item: Formula, patchNotes?: string) => Promise<void>;
+  saveFormula: (item: Formula, patchNotes?: string, skipVersion?: boolean) => Promise<void>;
   deleteFormula: (id: string) => Promise<void>;
   saveNutrients: (items: NutrientDefinition[]) => Promise<void>;
   getFormulaVersions: (formulaId: string) => Promise<FormulaVersion[]>;
@@ -153,20 +153,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await refreshAll();
   };
 
-  const saveFormula = async (item: Formula, patchNotes?: string) => {
+  const saveFormula = async (item: Formula, patchNotes?: string, skipVersion?: boolean) => {
     pushUndo();
-    // Auto-create version
-    const existingVersions = await db.getAllByIndex<FormulaVersion>('formulaVersions', 'formulaId', item.id);
-    const nextVersion = existingVersions.length > 0 ? Math.max(...existingVersions.map(v => v.version)) + 1 : 1;
-    const version: FormulaVersion = {
-      id: `${item.id}_v${nextVersion}_${Date.now()}`,
-      formulaId: item.id,
-      version: nextVersion,
-      patchNotes: patchNotes || '',
-      snapshot: { ...item },
-      createdAt: new Date().toISOString(),
-    };
-    await db.putItem('formulaVersions', version);
+    if (!skipVersion) {
+      // Auto-create version
+      const existingVersions = await db.getAllByIndex<FormulaVersion>('formulaVersions', 'formulaId', item.id);
+      const nextVersion = existingVersions.length > 0 ? Math.max(...existingVersions.map(v => v.version)) + 1 : 1;
+      const version: FormulaVersion = {
+        id: `${item.id}_v${nextVersion}_${Date.now()}`,
+        formulaId: item.id,
+        version: nextVersion,
+        patchNotes: patchNotes || '',
+        snapshot: { ...item },
+        createdAt: new Date().toISOString(),
+      };
+      await db.putItem('formulaVersions', version);
+    } else {
+      // Update the latest version's snapshot instead
+      const existingVersions = await db.getAllByIndex<FormulaVersion>('formulaVersions', 'formulaId', item.id);
+      if (existingVersions.length > 0) {
+        const latest = existingVersions.sort((a, b) => b.version - a.version)[0];
+        await db.putItem('formulaVersions', { ...latest, snapshot: { ...item }, patchNotes: patchNotes || latest.patchNotes, createdAt: new Date().toISOString() });
+      }
+    }
     await db.putItem('formulas', item);
     await updateTime();
     await refreshAll();
