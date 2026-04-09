@@ -148,16 +148,13 @@ const IngredientsPage: React.FC = () => {
     return `$${raw}/g`;
   };
 
-  const handleExportBackup = () => {
-    const data = JSON.stringify(ingredients, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `原料備份_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('原料備份已匯出');
+  const handleSaveToLocal = () => {
+    try {
+      localStorage.setItem('app_ingredients', JSON.stringify(ingredients));
+      toast.success('原料資料已儲存');
+    } catch {
+      toast.error('儲存失敗');
+    }
   };
 
   return (
@@ -165,8 +162,8 @@ const IngredientsPage: React.FC = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">原料設定</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportBackup} className="gap-1.5">
-            <Download className="h-4 w-4" /> 備份匯出
+          <Button variant="outline" size="sm" onClick={handleSaveToLocal} className="gap-1.5">
+            <Save className="h-4 w-4" /> 儲存
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportIngredients} className="gap-1.5">
             <Download className="h-4 w-4" /> 匯出

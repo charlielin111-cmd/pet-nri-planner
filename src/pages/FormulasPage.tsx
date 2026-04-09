@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Formula } from '@/lib/types';
+import { Formula, NUTRIENT_CATEGORY_LABELS } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical, GitCompare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -22,14 +23,22 @@ interface SortableFormulaRowProps {
   onExport: (f: Formula) => void;
   onDelete: (id: string) => void;
   onNavigate: (id: string) => void;
+  compareMode?: boolean;
+  compareChecked?: boolean;
+  onToggleCompare?: (id: string) => void;
 }
 
-const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, channelName, onEdit, onCopy, onExport, onDelete, onNavigate }) => {
+const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, channelName, onEdit, onCopy, onExport, onDelete, onNavigate, compareMode, compareChecked, onToggleCompare }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: f.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   return (
     <tr ref={setNodeRef} style={style} className="border-b hover:bg-muted/30">
+      {compareMode && (
+        <td className="px-2 py-3 w-8">
+          <Checkbox checked={compareChecked} onCheckedChange={() => onToggleCompare?.(f.id)} />
+        </td>
+      )}
       <td className="px-2 py-3 w-8">
         <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground">
           <GripVertical className="h-4 w-4" />
@@ -60,18 +69,15 @@ const FormulasPage: React.FC = () => {
   const { formulas, channels, ingredients, nutrients, saveFormula, deleteFormula } = useAppContext();
   const navigate = useNavigate();
 
-  // Search & filter
   const [searchText, setSearchText] = useState('');
   const [filterChannelId, setFilterChannelId] = useState('__all__');
 
-  // Add form
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [channelId, setChannelId] = useState('');
   const [servingSize, setServingSize] = useState('');
   const [note, setNote] = useState('');
 
-  // Edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingFormula, setEditingFormula] = useState<Formula | null>(null);
   const [editCode, setEditCode] = useState('');
@@ -80,13 +86,14 @@ const FormulasPage: React.FC = () => {
   const [editServingSize, setEditServingSize] = useState('');
   const [editNote, setEditNote] = useState('');
 
-  // Custom order tracking
   const [customOrder, setCustomOrder] = useState<string[] | null>(null);
 
-  // DnD sensors
+  // Compare mode
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  // Sort formulas: use custom order if set, otherwise sort by code ascending
   const sortedFormulas = useMemo(() => {
     const sorted = [...formulas].sort((a, b) => a.code.localeCompare(b.code, 'zh-TW', { numeric: true }));
     if (customOrder) {
@@ -103,7 +110,6 @@ const FormulasPage: React.FC = () => {
     return sorted;
   }, [formulas, customOrder]);
 
-  // Filtered formulas
   const filteredFormulas = useMemo(() => {
     return sortedFormulas.filter(f => {
       const matchSearch = !searchText.trim() ||
@@ -114,6 +120,38 @@ const FormulasPage: React.FC = () => {
       return matchSearch && matchChannel;
     });
   }, [sortedFormulas, searchText, filterChannelId]);
+
+  // Compute nutrient totals for a formula
+  const getFormulaTotals = (formula: Formula) => {
+    const totals: Record<string, number> = {};
+    let totalCalories = 0;
+    formula.ingredients.forEach(fi => {
+      const ing = ingredients.find(i => i.id === fi.ingredientId);
+      if (!ing) return;
+      totalCalories += ((ing.caloriesPer100g || 0) / 100) * fi.amount;
+      nutrients.forEach(n => {
+        const val = ing.nutrients[n.id];
+        if (val !== 'ND' && typeof val === 'number') {
+          totals[n.id] = (totals[n.id] || 0) + (val / 100) * fi.amount;
+        }
+      });
+    });
+    return { totals, totalCalories };
+  };
+
+  const compareFormulas = useMemo(() =>
+    formulas.filter(f => compareIds.has(f.id)),
+    [formulas, compareIds]
+  );
+
+  const toggleCompare = (id: string) => {
+    setCompareIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleAdd = async () => {
     if (!code.trim() || !name.trim()) return;
@@ -221,6 +259,15 @@ const FormulasPage: React.FC = () => {
     toast.success('排序已更新');
   };
 
+  const handleSaveToLocal = () => {
+    try {
+      localStorage.setItem('app_formulas', JSON.stringify(formulas));
+      toast.success('配方資料已儲存');
+    } catch {
+      toast.error('儲存失敗');
+    }
+  };
+
   const handleExportBackup = () => {
     const data = JSON.stringify(formulas, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
@@ -237,9 +284,19 @@ const FormulasPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">配方管理</h1>
-        <Button variant="outline" size="sm" onClick={handleExportBackup} className="gap-1.5">
-          <Download className="h-4 w-4" /> 備份匯出
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleSaveToLocal} className="gap-1.5">
+            <Save className="h-4 w-4" /> 儲存
+          </Button>
+          <Button
+            variant={compareMode ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => { setCompareMode(!compareMode); setCompareIds(new Set()); }}
+            className="gap-1.5"
+          >
+            <GitCompare className="h-4 w-4" /> {compareMode ? '退出比較' : '比較配方'}
+          </Button>
+        </div>
       </div>
 
       {/* Search & Filter */}
@@ -311,6 +368,7 @@ const FormulasPage: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
+                  {compareMode && <th className="w-8 px-2 py-3"></th>}
                   <th className="w-8 px-2 py-3"></th>
                   <th className="text-left px-4 py-3 font-medium">配方編號</th>
                   <th className="text-left px-4 py-3 font-medium">配方名稱</th>
@@ -325,7 +383,7 @@ const FormulasPage: React.FC = () => {
               <SortableContext items={filteredFormulas.map(f => f.id)} strategy={verticalListSortingStrategy}>
                 <tbody>
                   {filteredFormulas.length === 0 && (
-                    <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <tr><td colSpan={compareMode ? 10 : 9} className="text-center py-8 text-muted-foreground">
                       {formulas.length === 0 ? '尚無配方，請新增' : '無符合條件的配方'}
                     </td></tr>
                   )}
@@ -341,6 +399,9 @@ const FormulasPage: React.FC = () => {
                         onExport={handleExport}
                         onDelete={handleDelete}
                         onNavigate={(id) => navigate(`/editor?formula=${id}`)}
+                        compareMode={compareMode}
+                        compareChecked={compareIds.has(f.id)}
+                        onToggleCompare={toggleCompare}
                       />
                     );
                   })}
@@ -350,6 +411,83 @@ const FormulasPage: React.FC = () => {
           </DndContext>
         </div>
       </Card>
+
+      {/* Comparison table */}
+      {compareMode && compareFormulas.length >= 2 && (
+        <Card className="overflow-hidden">
+          <div className="px-4 py-3 border-b bg-muted/30">
+            <h3 className="font-medium text-sm">配方營養成分比較：{compareFormulas.map(f => `${f.code} ${f.name}`).join(' vs ')}</h3>
+          </div>
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="text-left px-3 py-2 font-medium">營養素</th>
+                  <th className="text-left px-3 py-2 font-medium">單位</th>
+                  {compareFormulas.map(f => (
+                    <th key={f.id} className="text-center px-3 py-2 font-medium">{f.code} {f.name}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {/* Calories row */}
+                {(() => {
+                  const cals = compareFormulas.map(f => getFormulaTotals(f).totalCalories);
+                  const allSame = cals.every(v => Math.abs(v - cals[0]) < 0.001);
+                  return (
+                    <tr className={`border-b ${!allSame ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}>
+                      <td className="px-3 py-1.5 font-medium">熱量</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">kcal</td>
+                      {compareFormulas.map(f => {
+                        const cal = getFormulaTotals(f).totalCalories;
+                        return (
+                          <td key={f.id} className={`px-3 py-1.5 text-center font-mono ${!allSame ? 'font-semibold text-amber-600 dark:text-amber-400' : ''}`}>
+                            {cal.toFixed(2)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })()}
+                {Object.entries(NUTRIENT_CATEGORY_LABELS).map(([cat, catLabel]) => {
+                  const catNutrients = nutrients.filter(n => n.category === cat);
+                  const relevantNutrients = catNutrients.filter(n => 
+                    compareFormulas.some(f => getFormulaTotals(f).totals[n.id] !== undefined)
+                  );
+                  if (relevantNutrients.length === 0) return null;
+                  return (
+                    <React.Fragment key={cat}>
+                      <tr className="bg-muted/30">
+                        <td colSpan={2 + compareFormulas.length} className="px-3 py-1.5 font-medium text-xs text-muted-foreground">{catLabel}</td>
+                      </tr>
+                      {relevantNutrients.map(n => {
+                        const values = compareFormulas.map(f => getFormulaTotals(f).totals[n.id]);
+                        const definedVals = values.filter(v => v !== undefined) as number[];
+                        const allSame = definedVals.length > 1 && definedVals.every(v => Math.abs(v - definedVals[0]) < 0.0001);
+                        const hasDiff = definedVals.length > 1 && !allSame;
+                        return (
+                          <tr key={n.id} className={`border-b ${hasDiff ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}>
+                            <td className="px-3 py-1.5">{n.name}</td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{n.unit}</td>
+                            {compareFormulas.map(f => {
+                              const val = getFormulaTotals(f).totals[n.id];
+                              return (
+                                <td key={f.id} className={`px-3 py-1.5 text-center font-mono ${hasDiff ? 'font-semibold text-amber-600 dark:text-amber-400' : ''}`}>
+                                  {val !== undefined ? val.toFixed(4) : 'ND'}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Edit formula dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
