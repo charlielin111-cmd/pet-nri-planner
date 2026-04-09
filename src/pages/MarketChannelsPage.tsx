@@ -133,16 +133,13 @@ const MarketChannelsPage: React.FC = () => {
 
   const categories = Object.entries(NUTRIENT_CATEGORY_LABELS);
 
-  const handleExportBackup = () => {
-    const data = JSON.stringify(channels, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `規範限值備份_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('規範限值備份已匯出');
+  const handleSaveToLocal = () => {
+    try {
+      localStorage.setItem('app_channels', JSON.stringify(channels));
+      toast.success('規範限值資料已儲存');
+    } catch {
+      toast.error('儲存失敗');
+    }
   };
 
   return (
@@ -150,8 +147,8 @@ const MarketChannelsPage: React.FC = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">規範限值</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportBackup} className="gap-1.5">
-            <Download className="h-4 w-4" /> 備份匯出
+          <Button variant="outline" size="sm" onClick={handleSaveToLocal} className="gap-1.5">
+            <Save className="h-4 w-4" /> 儲存
           </Button>
           <Button
             variant={compareMode ? 'default' : 'outline'}

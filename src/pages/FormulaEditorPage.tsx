@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X, Percent, Weight, Download, Info, History, FileText, RotateCcw } from 'lucide-react';
+import { Search, Trash2, GripVertical, Save, AlertTriangle, Settings2, Plus, X, Percent, Weight, Download, Info, History, RotateCcw } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -20,8 +20,6 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 const PIE_COLORS = [
   'hsl(210, 90%, 50%)', 'hsl(170, 60%, 45%)', 'hsl(38, 92%, 50%)',
@@ -284,19 +282,6 @@ const FormulaEditorPage: React.FC = () => {
 
   const totalWeight = ingredientPieData.reduce((s, d) => s + d.value, 0);
 
-  // Cost data
-  const costData = useMemo(() => {
-    return formulaIngredients
-      .filter(fi => fi.amount > 0)
-      .map(fi => {
-        const ing = ingredients.find(i => i.id === fi.ingredientId);
-        const cost = ing ? fi.amount * ing.pricePerGram : 0;
-        return { name: ing?.name || '未知', value: parseFloat(cost.toFixed(4)) };
-      })
-      .filter(d => d.value > 0);
-  }, [formulaIngredients, ingredients]);
-
-  const totalCost = costData.reduce((s, d) => s + d.value, 0);
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   const validationResults: ValidationResult[] = useMemo(() => {
@@ -398,143 +383,6 @@ const FormulaEditorPage: React.FC = () => {
     toast.success('已匯出 Excel');
   };
 
-  // PDF spec sheet export
-  const handleExportPDF = async () => {
-    if (!selectedFormula || formulaIngredients.length === 0) return;
-
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    // Load Chinese font
-    try {
-      const fontUrl = 'https://cdn.jsdelivr.net/fontsource/fonts/noto-sans-tc@latest/chinese-traditional-400-normal.ttf';
-      const response = await fetch(fontUrl);
-      const fontBuffer = await response.arrayBuffer();
-      const fontBase64 = btoa(String.fromCharCode(...new Uint8Array(fontBuffer)));
-      doc.addFileToVFS('NotoSansTC-Regular.ttf', fontBase64);
-      doc.addFont('NotoSansTC-Regular.ttf', 'NotoSansTC', 'normal');
-      doc.setFont('NotoSansTC');
-    } catch {
-      // Fallback to helvetica if font loading fails
-      doc.setFont('helvetica');
-      toast.warning('中文字型載入失敗，部分中文可能無法正確顯示');
-    }
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 15;
-    let y = 20;
-
-    // Title
-    doc.setFontSize(18);
-    doc.text(`產品規格書`, margin, y);
-    y += 8;
-    doc.setFontSize(11);
-    doc.text(`配方: ${selectedFormula.code} - ${selectedFormula.name}`, margin, y);
-    y += 5;
-    const channelName = channels.find(c => c.id === selectedChannelId)?.name || 'N/A';
-    doc.text(`通路: ${channelName}`, margin, y);
-    y += 5;
-    if (selectedFormula.servingSize) {
-      doc.text(`每份規格: ${selectedFormula.servingSize}g`, margin, y);
-      y += 5;
-    }
-    doc.text(`日期: ${new Date().toLocaleDateString('zh-TW')}`, margin, y);
-    y += 5;
-    doc.text(`總重量: ${totalWeight.toFixed(3)}g | 總成本: $${totalCost.toFixed(4)} | 熱量: ${totalCalories.toFixed(2)} kcal`, margin, y);
-    y += 10;
-
-    const fontName = doc.getFont().fontName;
-
-    // Ingredient table
-    doc.setFontSize(13);
-    doc.text('配方原料組成', margin, y);
-    y += 2;
-
-    const ingTableData = formulaIngredients.map(fi => {
-      const ing = ingredients.find(i => i.id === fi.ingredientId);
-      const base = selectedFormula?.servingSize || totalWeight;
-      const pct = base > 0 ? ((fi.amount / base) * 100).toFixed(3) : '0';
-      const cost = ing ? (fi.amount * ing.pricePerGram).toFixed(4) : '0';
-      return [ing?.materialCode || '', ing?.name || '未知', fi.amount.toFixed(3), `${pct}%`, `$${cost}`];
-    });
-    ingTableData.push(['', '合計', totalWeight.toFixed(3), '', `$${totalCost.toFixed(4)}`]);
-
-    (doc as any).autoTable({
-      startY: y,
-      head: [['編號', '原料名稱', '用量 (g)', '佔比 (%)', '成本']],
-      body: ingTableData,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 9, font: fontName },
-      headStyles: { fillColor: [59, 130, 246], font: fontName },
-    });
-    y = (doc as any).lastAutoTable.finalY + 10;
-
-    // Nutrient analysis table
-    if (y > 240) { doc.addPage(); y = 20; }
-    doc.setFontSize(13);
-    doc.text('營養成分分析', margin, y);
-    y += 2;
-
-    const nutTableData = nutrients
-      .filter(n => totals[n.id] !== undefined)
-      .map(n => [n.name, n.nameEn, totals[n.id].toFixed(4), n.unit]);
-
-    (doc as any).autoTable({
-      startY: y,
-      head: [['營養素', '英文名', '含量', '單位']],
-      body: nutTableData,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 9, font: fontName },
-      headStyles: { fillColor: [16, 185, 129], font: fontName },
-    });
-    y = (doc as any).lastAutoTable.finalY + 10;
-
-    // Cost breakdown table
-    if (y > 240) { doc.addPage(); y = 20; }
-    doc.setFontSize(13);
-    doc.text('成本明細', margin, y);
-    y += 2;
-
-    const costTableData = costData.map(d => {
-      const costPct = totalCost > 0 ? ((d.value / totalCost) * 100).toFixed(1) : '0';
-      return [d.name, `$${d.value.toFixed(4)}`, `${costPct}%`];
-    });
-    costTableData.push(['合計', `$${totalCost.toFixed(4)}`, '100%']);
-
-    (doc as any).autoTable({
-      startY: y,
-      head: [['原料', '成本', '佔比']],
-      body: costTableData,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 9, font: fontName },
-      headStyles: { fillColor: [245, 158, 11], font: fontName },
-    });
-
-    // Validation results
-    if (failures.length > 0) {
-      y = (doc as any).lastAutoTable.finalY + 10;
-      if (y > 240) { doc.addPage(); y = 20; }
-      doc.setFontSize(13);
-      doc.text('法規校核失敗項目', margin, y);
-      y += 2;
-
-      const failData = failures.map(f => {
-        const limitStr = f.limit.type === 'min' ? `>= ${f.limit.min}` : f.limit.type === 'max' ? `<= ${f.limit.max}` : `${f.limit.min} ~ ${f.limit.max}`;
-        return [f.nutrientName, f.value.toFixed(4), f.unit, limitStr];
-      });
-
-      (doc as any).autoTable({
-        startY: y,
-        head: [['營養素', '數值', '單位', '限制']],
-        body: failData,
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9, font: fontName },
-        headStyles: { fillColor: [239, 68, 68], font: fontName },
-      });
-    }
-
-    doc.save(`規格書_${selectedFormula.code}_${selectedFormula.name}.pdf`);
-    toast.success('已匯出 PDF 規格書');
-  };
 
   const renderNutrientPopover = (ingredientId: string) => {
     const ing = ingredients.find(i => i.id === ingredientId);
@@ -613,9 +461,6 @@ const FormulaEditorPage: React.FC = () => {
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport} disabled={!selectedFormula || formulaIngredients.length === 0} className="gap-1.5">
             <Download className="h-4 w-4" /> Excel
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={!selectedFormula || formulaIngredients.length === 0} className="gap-1.5">
-            <FileText className="h-4 w-4" /> PDF
           </Button>
           <Button onClick={handleSaveClick} disabled={!selectedFormula} className="gap-1.5">
             <Save className="h-4 w-4" /> 儲存
@@ -864,40 +709,6 @@ const FormulaEditorPage: React.FC = () => {
             )}
           </Card>
 
-          {/* Cost pie chart */}
-          <Card className="p-4">
-            <h3 className="text-sm font-medium mb-3">成本組成圖</h3>
-            {costData.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height={240}>
-                  <PieChart>
-                    <Pie data={costData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={40}>
-                      {costData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Legend />
-                    <Tooltip formatter={(value: number, name: string) => [`$${value.toFixed(4)} (${totalCost > 0 ? ((value / totalCost) * 100).toFixed(1) : 0}%)`, name]} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="space-y-1 mt-2">
-                  {costData.map((d, i) => (
-                    <div key={d.name} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                        <span>{d.name}</span>
-                      </div>
-                      <span className="font-medium">${d.value.toFixed(4)} ({totalCost > 0 ? ((d.value / totalCost) * 100).toFixed(1) : 0}%)</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between text-xs font-bold pt-1 border-t">
-                    <span>合計</span>
-                    <span>${totalCost.toFixed(4)}</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">加入原料後顯示成本圖表</p>
-            )}
-          </Card>
 
           <Card className="p-4 max-h-96 overflow-y-auto scrollbar-thin">
             <h3 className="text-sm font-medium mb-2">營養成分加總</h3>
