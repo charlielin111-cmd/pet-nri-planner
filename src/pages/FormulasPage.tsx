@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical, GitCompare } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical, GitCompare, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -23,6 +24,7 @@ interface SortableFormulaRowProps {
   onExport: (f: Formula) => void;
   onDelete: (id: string) => void;
   onNavigate: (id: string) => void;
+  onView: (f: Formula) => void;
   compareMode?: boolean;
   compareChecked?: boolean;
   onToggleCompare?: (id: string) => void;
@@ -91,6 +93,9 @@ const FormulasPage: React.FC = () => {
   // Compare mode
   const [compareMode, setCompareMode] = useState(false);
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
+
+  // View detail dialog
+  const [viewFormula, setViewFormula] = useState<Formula | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -399,6 +404,7 @@ const FormulasPage: React.FC = () => {
                         onExport={handleExport}
                         onDelete={handleDelete}
                         onNavigate={(id) => navigate(`/editor?formula=${id}`)}
+                        onView={(form) => setViewFormula(form)}
                         compareMode={compareMode}
                         compareChecked={compareIds.has(f.id)}
                         onToggleCompare={toggleCompare}
@@ -532,6 +538,94 @@ const FormulasPage: React.FC = () => {
               <Button onClick={handleEditSave} className="gap-1.5"><Save className="h-4 w-4" /> 儲存</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View formula detail dialog */}
+      <Dialog open={!!viewFormula} onOpenChange={(o) => !o && setViewFormula(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>
+              配方詳情 — <span className="font-mono text-base">{viewFormula?.code}</span> {viewFormula?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {viewFormula && (() => {
+            const ch = channels.find(c => c.id === viewFormula.channelId);
+            const totalWeight = viewFormula.ingredients.reduce((s, fi) => s + fi.amount, 0);
+            const base = viewFormula.servingSize || totalWeight;
+            const { totals, totalCalories } = getFormulaTotals(viewFormula);
+            return (
+              <ScrollArea className="max-h-[65vh] pr-3">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div><span className="text-muted-foreground">對應通路：</span>{ch?.name || '-'}</div>
+                    <div><span className="text-muted-foreground">每份規格：</span>{viewFormula.servingSize ? `${viewFormula.servingSize} g` : '-'}</div>
+                    <div><span className="text-muted-foreground">原料數：</span>{viewFormula.ingredients.length}</div>
+                    <div><span className="text-muted-foreground">總重量：</span>{totalWeight.toFixed(3)} g</div>
+                    <div className="col-span-2"><span className="text-muted-foreground">備註：</span>{viewFormula.note || '-'}</div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">原料組成</h4>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left px-2 py-2">編號</th>
+                          <th className="text-left px-2 py-2">原料名稱</th>
+                          <th className="text-right px-2 py-2">用量 (g)</th>
+                          <th className="text-right px-2 py-2">佔比 (%)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {viewFormula.ingredients.map((fi, idx) => {
+                          const ing = ingredients.find(i => i.id === fi.ingredientId);
+                          const pct = base > 0 ? (fi.amount / base) * 100 : 0;
+                          return (
+                            <tr key={idx} className="border-b">
+                              <td className="px-2 py-1.5 font-mono text-muted-foreground">{ing?.materialCode || '-'}</td>
+                              <td className="px-2 py-1.5">{ing?.name || '未知'}</td>
+                              <td className="px-2 py-1.5 text-right font-mono">{fi.amount.toFixed(3)}</td>
+                              <td className="px-2 py-1.5 text-right font-mono">{pct.toFixed(3)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 font-semibold">
+                          <td colSpan={2} className="px-2 py-2">合計</td>
+                          <td className="px-2 py-2 text-right font-mono">{totalWeight.toFixed(3)}</td>
+                          <td className="px-2 py-2 text-right font-mono">{base > 0 ? ((totalWeight / base) * 100).toFixed(3) : '0.000'}%</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">營養成分加總</h4>
+                    <div className="text-xs flex justify-between py-1 border-b">
+                      <span className="font-medium">熱量</span>
+                      <span className="font-mono">{totalCalories.toFixed(2)} kcal</span>
+                    </div>
+                    {Object.entries(NUTRIENT_CATEGORY_LABELS).map(([cat, label]) => {
+                      const catNuts = nutrients.filter(n => n.category === cat && totals[n.id] !== undefined);
+                      if (catNuts.length === 0) return null;
+                      return (
+                        <div key={cat} className="mt-2">
+                          <div className="text-xs text-muted-foreground font-medium mb-0.5">{label}</div>
+                          {catNuts.map(n => (
+                            <div key={n.id} className="text-xs flex justify-between py-0.5">
+                              <span>{n.name}</span>
+                              <span className="font-mono">{totals[n.id].toFixed(4)} {n.unit}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </ScrollArea>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

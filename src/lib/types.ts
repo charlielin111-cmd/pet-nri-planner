@@ -33,6 +33,7 @@ export interface Ingredient {
   priceUnitLabel?: string; // custom unit label
   priceRaw?: number; // raw price input before conversion
   caloriesPer100g?: number; // kcal per 100g
+  vitaminEType?: 'natural' | 'synthetic'; // for vitamin E IU -> g conversion
   nutrients: Record<string, number | 'ND'>;
   updatedAt: string;
 }

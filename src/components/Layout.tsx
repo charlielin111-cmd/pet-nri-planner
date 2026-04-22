@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAppContext } from '@/contexts/AppContext';
 import { ImportDiff, ImportDiffItem } from '@/contexts/AppContext';
-import { FlaskConical, Package, ShieldCheck, FileText, Undo2, Download, Upload, Scale, Plus, RefreshCw, ChevronDown } from 'lucide-react';
+import { FlaskConical, Package, ShieldCheck, FileText, Undo2, Download, Upload, Scale, Plus, RefreshCw, ChevronDown, Bell } from 'lucide-react';
+import { AppUpdatesDialog } from './AppUpdatesDialog';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -35,6 +36,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     ingredients: [], channels: [], formulas: [], nutrients: [],
   });
   const [showPreview, setShowPreview] = useState(false);
+  const [appUpdatesOpen, setAppUpdatesOpen] = useState(false);
 
   const handleExport = async () => {
     const json = await exportAllData();
@@ -243,6 +245,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 Latest Update: {lastUpdate}
               </div>
             )}
+            <Button variant="ghost" size="icon" onClick={() => setAppUpdatesOpen(true)} title="APP 更新備註">
+              <Bell className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </header>
@@ -315,6 +320,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           )}
         </DialogContent>
       </Dialog>
+
+      <AppUpdatesDialog open={appUpdatesOpen} onOpenChange={setAppUpdatesOpen} />
     </div>
   );
 };

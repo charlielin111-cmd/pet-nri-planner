@@ -20,6 +20,8 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { computeNutrientGramTotals } from '@/lib/nutrientConversion';
+import { FormulaCombobox } from '@/components/FormulaCombobox';
 
 const PIE_COLORS = [
   'hsl(210, 90%, 50%)', 'hsl(170, 60%, 45%)', 'hsl(38, 92%, 50%)',
@@ -256,18 +258,21 @@ const FormulaEditorPage: React.FC = () => {
     });
   };
 
+  // Pie chart uses grams as a common base, applying vitamin E type per ingredient
   const pieData = useMemo(() => {
+    const gramTotals = computeNutrientGramTotals(formulaIngredients, ingredients, nutrients);
     const categories: Record<string, number> = {};
     nutrients.forEach(n => {
-      if (totals[n.id]) {
+      const g = gramTotals[n.id];
+      if (g && g > 0) {
         const catLabel = NUTRIENT_CATEGORY_LABELS[n.category];
-        categories[catLabel] = (categories[catLabel] || 0) + totals[n.id];
+        categories[catLabel] = (categories[catLabel] || 0) + g;
       }
     });
     return Object.entries(categories)
       .filter(([, v]) => v > 0)
-      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(2)) }));
-  }, [totals, nutrients]);
+      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(4)) }));
+  }, [formulaIngredients, ingredients, nutrients]);
 
   const totalPieValue = pieData.reduce((s, d) => s + d.value, 0);
 
@@ -444,12 +449,12 @@ const FormulaEditorPage: React.FC = () => {
           </h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Select value={selectedFormulaId} onValueChange={setSelectedFormulaId}>
-            <SelectTrigger className="w-52"><SelectValue placeholder="選擇配方" /></SelectTrigger>
-            <SelectContent>
-              {formulas.map(f => <SelectItem key={f.id} value={f.id}>{f.code} - {f.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <FormulaCombobox
+            formulas={formulas}
+            value={selectedFormulaId}
+            onChange={setSelectedFormulaId}
+            className="w-60"
+          />
           <Select value={selectedChannelId} onValueChange={setSelectedChannelId}>
             <SelectTrigger className="w-44"><SelectValue placeholder="審查通路" /></SelectTrigger>
             <SelectContent>

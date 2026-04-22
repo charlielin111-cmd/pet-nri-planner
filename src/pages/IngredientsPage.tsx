@@ -27,9 +27,11 @@ const IngredientsPage: React.FC = () => {
   const [form, setForm] = useState({ materialCode: '', name: '', priceRaw: 0, caloriesPer100g: 0 });
   const [priceUnit, setPriceUnit] = useState<PriceUnit>('per_gram');
   const [customUnitLabel, setCustomUnitLabel] = useState('');
+  const [vitaminEType, setVitaminEType] = useState<'natural' | 'synthetic'>('synthetic');
   const [nutrientValues, setNutrientValues] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(['materialCode', 'name', 'pricePerGram']));
+  const [viewIngredient, setViewIngredient] = useState<Ingredient | null>(null);
 
   const nutrientColumnOptions = useMemo(() => 
     nutrients.map(n => ({ id: n.id, label: `${n.name} (${n.unit})` })), 
@@ -50,6 +52,7 @@ const IngredientsPage: React.FC = () => {
     setForm({ materialCode: '', name: '', priceRaw: 0, caloriesPer100g: 0 });
     setPriceUnit('per_gram');
     setCustomUnitLabel('');
+    setVitaminEType('synthetic');
     setNutrientValues({});
     setDialogOpen(true);
   };
@@ -65,6 +68,7 @@ const IngredientsPage: React.FC = () => {
     });
     setPriceUnit(unit);
     setCustomUnitLabel(ing.priceUnitLabel || '');
+    setVitaminEType(ing.vitaminEType || 'synthetic');
     const nv: Record<string, string> = {};
     nutrients.forEach(n => {
       const val = ing.nutrients[n.id];
@@ -98,6 +102,7 @@ const IngredientsPage: React.FC = () => {
       priceUnitLabel: priceUnit === 'custom' ? customUnitLabel.trim() : undefined,
       priceRaw: form.priceRaw,
       caloriesPer100g: form.caloriesPer100g || 0,
+      vitaminEType,
       nutrients: parsedNutrients,
       updatedAt: new Date().toISOString(),
     };
@@ -230,7 +235,15 @@ const IngredientsPage: React.FC = () => {
               {filteredIngredients.map(ing => (
                 <tr key={ing.id} className="border-b hover:bg-muted/30">
                   <td className="px-4 py-3 font-mono">{ing.materialCode}</td>
-                  <td className="px-4 py-3">{ing.name}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setViewIngredient(ing)}
+                      className="text-left hover:text-primary hover:underline"
+                      title="檢視原料詳情"
+                    >
+                      {ing.name}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-right">{getPriceDisplay(ing)}</td>
                   {visibleNutrientCols.map(n => (
                     <td key={n.id} className="px-3 py-3 text-right font-mono text-xs">
@@ -316,6 +329,17 @@ const IngredientsPage: React.FC = () => {
                           <label className="text-xs flex-1 min-w-0 truncate" title={`${n.name} (${n.nameEn})`}>
                             {n.name} <span className="text-muted-foreground">({n.unit})</span>
                           </label>
+                          {n.id === 'vitamin_e' && (
+                            <Select value={vitaminEType} onValueChange={(v: 'natural' | 'synthetic') => setVitaminEType(v)}>
+                              <SelectTrigger className="h-7 w-24 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="synthetic">合成型</SelectItem>
+                                <SelectItem value="natural">天然型</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                           <Input
                             value={nutrientValues[n.id] || ''}
                             onChange={e => setNutrientValues(p => ({ ...p, [n.id]: e.target.value }))}
@@ -335,6 +359,54 @@ const IngredientsPage: React.FC = () => {
               <Button onClick={handleSave} className="gap-1.5"><Save className="h-4 w-4" /> 儲存</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View ingredient detail dialog */}
+      <Dialog open={!!viewIngredient} onOpenChange={(o) => !o && setViewIngredient(null)}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto scrollbar-thin">
+          <DialogHeader>
+            <DialogTitle>
+              原料詳情 — <span className="font-mono text-base">{viewIngredient?.materialCode}</span> {viewIngredient?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {viewIngredient && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground">價格：</span>{getPriceDisplay(viewIngredient)}</div>
+                <div><span className="text-muted-foreground">每公克價格：</span>${viewIngredient.pricePerGram}/g</div>
+                <div><span className="text-muted-foreground">每 100g 熱量：</span>{viewIngredient.caloriesPer100g || 0} kcal</div>
+                <div><span className="text-muted-foreground">維生素 E 型：</span>{viewIngredient.vitaminEType === 'natural' ? '天然型' : '合成型'}</div>
+                <div className="col-span-2 text-xs text-muted-foreground">
+                  最後更新：{new Date(viewIngredient.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium mb-1">營養成分（每 100g）</h4>
+                {categories.map(([cat, label]) => {
+                  const catNuts = nutrients.filter(n => n.category === cat);
+                  const hasValues = catNuts.some(n => viewIngredient.nutrients[n.id] !== undefined && viewIngredient.nutrients[n.id] !== 'ND');
+                  if (!hasValues) return null;
+                  return (
+                    <div key={cat} className="mt-2">
+                      <div className="text-xs text-muted-foreground font-medium mb-0.5">{label}</div>
+                      {catNuts.map(n => {
+                        const val = viewIngredient.nutrients[n.id];
+                        if (val === undefined || val === 'ND') return null;
+                        return (
+                          <div key={n.id} className="text-xs flex justify-between py-0.5">
+                            <span>{n.name}</span>
+                            <span className="font-mono">{val} {n.unit}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
