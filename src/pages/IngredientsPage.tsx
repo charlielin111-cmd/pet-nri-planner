@@ -27,9 +27,11 @@ const IngredientsPage: React.FC = () => {
   const [form, setForm] = useState({ materialCode: '', name: '', priceRaw: 0, caloriesPer100g: 0 });
   const [priceUnit, setPriceUnit] = useState<PriceUnit>('per_gram');
   const [customUnitLabel, setCustomUnitLabel] = useState('');
+  const [vitaminEType, setVitaminEType] = useState<'natural' | 'synthetic'>('synthetic');
   const [nutrientValues, setNutrientValues] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(['materialCode', 'name', 'pricePerGram']));
+  const [viewIngredient, setViewIngredient] = useState<Ingredient | null>(null);
 
   const nutrientColumnOptions = useMemo(() => 
     nutrients.map(n => ({ id: n.id, label: `${n.name} (${n.unit})` })), 
