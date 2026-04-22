@@ -320,6 +320,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           )}
         </DialogContent>
       </Dialog>
+
+      <AppUpdatesDialog open={appUpdatesOpen} onOpenChange={setAppUpdatesOpen} />
     </div>
   );
 };
