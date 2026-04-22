@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical, GitCompare, Eye } from 'lucide-react';
+import { nutrientValueToGrams } from '@/lib/nutrientConversion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -30,7 +31,7 @@ interface SortableFormulaRowProps {
   onToggleCompare?: (id: string) => void;
 }
 
-const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, channelName, onEdit, onCopy, onExport, onDelete, onNavigate, compareMode, compareChecked, onToggleCompare }) => {
+const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, channelName, onEdit, onCopy, onExport, onDelete, onNavigate, onView, compareMode, compareChecked, onToggleCompare }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: f.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -57,6 +58,7 @@ const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, cha
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1">
+          <Button variant="ghost" size="icon" onClick={() => onView(f)} title="檢視配方詳情"><Eye className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => onEdit(f)} title="編輯配方"><Pencil className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => onCopy(f)} title="複製配方"><Copy className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => onExport(f)} title="匯出 Excel"><Download className="h-4 w-4" /></Button>
