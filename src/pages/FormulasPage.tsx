@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical, GitCompare } from 'lucide-react';
+import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical, GitCompare, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -23,6 +23,7 @@ interface SortableFormulaRowProps {
   onExport: (f: Formula) => void;
   onDelete: (id: string) => void;
   onNavigate: (id: string) => void;
+  onView: (f: Formula) => void;
   compareMode?: boolean;
   compareChecked?: boolean;
   onToggleCompare?: (id: string) => void;
