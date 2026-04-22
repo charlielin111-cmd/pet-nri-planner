@@ -235,7 +235,15 @@ const IngredientsPage: React.FC = () => {
               {filteredIngredients.map(ing => (
                 <tr key={ing.id} className="border-b hover:bg-muted/30">
                   <td className="px-4 py-3 font-mono">{ing.materialCode}</td>
-                  <td className="px-4 py-3">{ing.name}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setViewIngredient(ing)}
+                      className="text-left hover:text-primary hover:underline"
+                      title="檢視原料詳情"
+                    >
+                      {ing.name}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-right">{getPriceDisplay(ing)}</td>
                   {visibleNutrientCols.map(n => (
                     <td key={n.id} className="px-3 py-3 text-right font-mono text-xs">
