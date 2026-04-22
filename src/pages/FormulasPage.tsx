@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, Download, Save, Copy, Pencil, Search, GripVertical, GitCompare, Eye } from 'lucide-react';
+import { nutrientValueToGrams } from '@/lib/nutrientConversion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -30,7 +31,7 @@ interface SortableFormulaRowProps {
   onToggleCompare?: (id: string) => void;
 }
 
-const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, channelName, onEdit, onCopy, onExport, onDelete, onNavigate, compareMode, compareChecked, onToggleCompare }) => {
+const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, channelName, onEdit, onCopy, onExport, onDelete, onNavigate, onView, compareMode, compareChecked, onToggleCompare }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: f.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -57,6 +58,7 @@ const SortableFormulaRow: React.FC<SortableFormulaRowProps> = ({ formula: f, cha
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1">
+          <Button variant="ghost" size="icon" onClick={() => onView(f)} title="檢視配方詳情"><Eye className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => onEdit(f)} title="編輯配方"><Pencil className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => onCopy(f)} title="複製配方"><Copy className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => onExport(f)} title="匯出 Excel"><Download className="h-4 w-4" /></Button>
@@ -543,7 +545,7 @@ const FormulasPage: React.FC = () => {
 
       {/* View formula detail dialog */}
       <Dialog open={!!viewFormula} onOpenChange={(o) => !o && setViewFormula(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh]">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               配方詳情 — <span className="font-mono text-base">{viewFormula?.code}</span> {viewFormula?.name}
@@ -554,8 +556,38 @@ const FormulasPage: React.FC = () => {
             const totalWeight = viewFormula.ingredients.reduce((s, fi) => s + fi.amount, 0);
             const base = viewFormula.servingSize || totalWeight;
             const { totals, totalCalories } = getFormulaTotals(viewFormula);
+
+            // Compute category percentages using "convert-then-sum" in grams
+            const categoryGrams: Record<string, number> = {};
+            let allGramsSum = 0;
+            nutrients.forEach(n => {
+              const valNative = totals[n.id];
+              if (valNative === undefined) return;
+              // Find first ingredient using vit E type (for vitamin E) — simplified: use synthetic default
+              // Use representative ingredient: we accumulate per ingredient for accuracy
+              let grams = 0;
+              viewFormula.ingredients.forEach(fi => {
+                const ing = ingredients.find(i => i.id === fi.ingredientId);
+                if (!ing) return;
+                const v = ing.nutrients[n.id];
+                if (v === 'ND' || typeof v !== 'number') return;
+                const native = (v / 100) * fi.amount;
+                grams += nutrientValueToGrams(n.id, native, n.unit, ing);
+              });
+              categoryGrams[n.category] = (categoryGrams[n.category] || 0) + grams;
+              allGramsSum += grams;
+            });
+
+            const formatPct = (g: number) => {
+              if (allGramsSum <= 0) return '0.0000%';
+              const pct = (g / allGramsSum) * 100;
+              if (pct === 0) return '0.0000%';
+              if (pct < 0.0001) return pct.toFixed(10) + '%';
+              return pct.toFixed(4) + '%';
+            };
+
             return (
-              <ScrollArea className="max-h-[65vh] pr-3">
+              <ScrollArea className="flex-1 min-h-0 pr-3">
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div><span className="text-muted-foreground">對應通路：</span>{ch?.name || '-'}</div>
@@ -598,6 +630,40 @@ const FormulasPage: React.FC = () => {
                         </tr>
                       </tfoot>
                     </table>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">五大營養類別百分比（已統一換算為克）</h4>
+                    <div className="rounded border overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-muted/50 border-b">
+                            <th className="text-left px-2 py-1.5">類別</th>
+                            <th className="text-right px-2 py-1.5">總量 (g)</th>
+                            <th className="text-right px-2 py-1.5">佔比</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(NUTRIENT_CATEGORY_LABELS).map(([cat, label]) => {
+                            const g = categoryGrams[cat] || 0;
+                            return (
+                              <tr key={cat} className="border-b last:border-b-0">
+                                <td className="px-2 py-1.5">{label}</td>
+                                <td className="px-2 py-1.5 text-right font-mono">{g.toFixed(6)}</td>
+                                <td className="px-2 py-1.5 text-right font-mono">{formatPct(g)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t font-semibold bg-muted/30">
+                            <td className="px-2 py-1.5">合計</td>
+                            <td className="px-2 py-1.5 text-right font-mono">{allGramsSum.toFixed(6)}</td>
+                            <td className="px-2 py-1.5 text-right font-mono">100.0000%</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
 
                   <div>

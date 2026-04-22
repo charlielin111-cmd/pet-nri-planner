@@ -362,48 +362,87 @@ const IngredientsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* View ingredient detail dialog */}
+      {/* View ingredient detail dialog — mirrors edit form layout */}
       <Dialog open={!!viewIngredient} onOpenChange={(o) => !o && setViewIngredient(null)}>
-        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto scrollbar-thin">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto scrollbar-thin">
           <DialogHeader>
             <DialogTitle>
               原料詳情 — <span className="font-mono text-base">{viewIngredient?.materialCode}</span> {viewIngredient?.name}
             </DialogTitle>
           </DialogHeader>
           {viewIngredient && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-muted-foreground">價格：</span>{getPriceDisplay(viewIngredient)}</div>
-                <div><span className="text-muted-foreground">每公克價格：</span>${viewIngredient.pricePerGram}/g</div>
-                <div><span className="text-muted-foreground">每 100g 熱量：</span>{viewIngredient.caloriesPer100g || 0} kcal</div>
-                <div><span className="text-muted-foreground">維生素 E 型：</span>{viewIngredient.vitaminEType === 'natural' ? '天然型' : '合成型'}</div>
-                <div className="col-span-2 text-xs text-muted-foreground">
-                  最後更新：{new Date(viewIngredient.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">物料編號</label>
+                  <div className="text-sm font-mono px-3 py-2 border rounded bg-muted/30">{viewIngredient.materialCode}</div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">品名</label>
+                  <div className="text-sm px-3 py-2 border rounded bg-muted/30">{viewIngredient.name}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">價格單位</label>
+                  <div className="text-sm px-3 py-2 border rounded bg-muted/30">{PRICE_UNIT_LABELS[viewIngredient.priceUnit || 'per_gram']}</div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">價格</label>
+                  <div className="text-sm font-mono px-3 py-2 border rounded bg-muted/30">{getPriceDisplay(viewIngredient)}</div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">每公克價格</label>
+                  <div className="text-sm font-mono px-3 py-2 border rounded bg-muted/30">${viewIngredient.pricePerGram}/g</div>
                 </div>
               </div>
 
               <div>
-                <h4 className="text-sm font-medium mb-1">營養成分（每 100g）</h4>
-                {categories.map(([cat, label]) => {
-                  const catNuts = nutrients.filter(n => n.category === cat);
-                  const hasValues = catNuts.some(n => viewIngredient.nutrients[n.id] !== undefined && viewIngredient.nutrients[n.id] !== 'ND');
-                  if (!hasValues) return null;
-                  return (
-                    <div key={cat} className="mt-2">
-                      <div className="text-xs text-muted-foreground font-medium mb-0.5">{label}</div>
-                      {catNuts.map(n => {
-                        const val = viewIngredient.nutrients[n.id];
-                        if (val === undefined || val === 'ND') return null;
-                        return (
-                          <div key={n.id} className="text-xs flex justify-between py-0.5">
-                            <span>{n.name}</span>
-                            <span className="font-mono">{val} {n.unit}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">每 100g 熱量 (kcal)</label>
+                <div className="text-sm font-mono px-3 py-2 border rounded bg-muted/30 w-40">{viewIngredient.caloriesPer100g || 0}</div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">營養成分（每 100g 含量），ND 代表未設定</p>
+
+              {categories.map(([cat, label]) => {
+                const catNutrients = nutrients.filter(n => n.category === cat);
+                if (catNutrients.length === 0) return null;
+                return (
+                  <Collapsible key={cat} defaultOpen>
+                    <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium w-full py-1.5 hover:text-primary">
+                      <ChevronDown className="h-4 w-4" />
+                      {label}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        {catNutrients.map(n => {
+                          const val = viewIngredient.nutrients[n.id];
+                          const display = val === undefined || val === 'ND' ? 'ND' : String(val);
+                          return (
+                            <div key={n.id} className="flex items-center gap-2">
+                              <label className="text-xs flex-1 min-w-0 truncate" title={`${n.name} (${n.nameEn})`}>
+                                {n.name} <span className="text-muted-foreground">({n.unit})</span>
+                              </label>
+                              {n.id === 'vitamin_e' && (
+                                <span className="h-7 px-2 text-xs border rounded bg-muted/30 flex items-center w-24 justify-center">
+                                  {viewIngredient.vitaminEType === 'natural' ? '天然型' : '合成型'}
+                                </span>
+                              )}
+                              <div className={`w-24 h-7 px-2 text-xs border rounded bg-muted/30 flex items-center justify-end font-mono ${display === 'ND' ? 'text-muted-foreground' : ''}`}>
+                                {display}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })}
+
+              <div className="text-xs text-muted-foreground pt-2 border-t">
+                最後更新：{new Date(viewIngredient.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
               </div>
             </div>
           )}
