@@ -3,11 +3,11 @@ import { useAppContext } from '@/contexts/AppContext';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Scale, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { FormulaCombobox } from '@/components/FormulaCombobox';
 
 const PIE_COLORS = [
   'hsl(210, 90%, 50%)', 'hsl(170, 60%, 45%)', 'hsl(38, 92%, 50%)',
@@ -95,12 +95,12 @@ const BatchCalcPage: React.FC = () => {
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">選擇配方</label>
-          <Select value={selectedFormulaId} onValueChange={setSelectedFormulaId}>
-            <SelectTrigger className="w-60"><SelectValue placeholder="選擇配方" /></SelectTrigger>
-            <SelectContent>
-              {formulas.map(f => <SelectItem key={f.id} value={f.id}>{f.code} - {f.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <FormulaCombobox
+            formulas={formulas}
+            value={selectedFormulaId}
+            onChange={setSelectedFormulaId}
+            className="w-60"
+          />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">成品重量 (g)</label>
