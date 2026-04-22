@@ -52,6 +52,7 @@ const IngredientsPage: React.FC = () => {
     setForm({ materialCode: '', name: '', priceRaw: 0, caloriesPer100g: 0 });
     setPriceUnit('per_gram');
     setCustomUnitLabel('');
+    setVitaminEType('synthetic');
     setNutrientValues({});
     setDialogOpen(true);
   };
@@ -67,6 +68,7 @@ const IngredientsPage: React.FC = () => {
     });
     setPriceUnit(unit);
     setCustomUnitLabel(ing.priceUnitLabel || '');
+    setVitaminEType(ing.vitaminEType || 'synthetic');
     const nv: Record<string, string> = {};
     nutrients.forEach(n => {
       const val = ing.nutrients[n.id];
@@ -100,6 +102,7 @@ const IngredientsPage: React.FC = () => {
       priceUnitLabel: priceUnit === 'custom' ? customUnitLabel.trim() : undefined,
       priceRaw: form.priceRaw,
       caloriesPer100g: form.caloriesPer100g || 0,
+      vitaminEType,
       nutrients: parsedNutrients,
       updatedAt: new Date().toISOString(),
     };
