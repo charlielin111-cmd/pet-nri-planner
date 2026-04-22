@@ -361,6 +361,54 @@ const IngredientsPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* View ingredient detail dialog */}
+      <Dialog open={!!viewIngredient} onOpenChange={(o) => !o && setViewIngredient(null)}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto scrollbar-thin">
+          <DialogHeader>
+            <DialogTitle>
+              原料詳情 — <span className="font-mono text-base">{viewIngredient?.materialCode}</span> {viewIngredient?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {viewIngredient && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground">價格：</span>{getPriceDisplay(viewIngredient)}</div>
+                <div><span className="text-muted-foreground">每公克價格：</span>${viewIngredient.pricePerGram}/g</div>
+                <div><span className="text-muted-foreground">每 100g 熱量：</span>{viewIngredient.caloriesPer100g || 0} kcal</div>
+                <div><span className="text-muted-foreground">維生素 E 型：</span>{viewIngredient.vitaminEType === 'natural' ? '天然型' : '合成型'}</div>
+                <div className="col-span-2 text-xs text-muted-foreground">
+                  最後更新：{new Date(viewIngredient.updatedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium mb-1">營養成分（每 100g）</h4>
+                {categories.map(([cat, label]) => {
+                  const catNuts = nutrients.filter(n => n.category === cat);
+                  const hasValues = catNuts.some(n => viewIngredient.nutrients[n.id] !== undefined && viewIngredient.nutrients[n.id] !== 'ND');
+                  if (!hasValues) return null;
+                  return (
+                    <div key={cat} className="mt-2">
+                      <div className="text-xs text-muted-foreground font-medium mb-0.5">{label}</div>
+                      {catNuts.map(n => {
+                        const val = viewIngredient.nutrients[n.id];
+                        if (val === undefined || val === 'ND') return null;
+                        return (
+                          <div key={n.id} className="text-xs flex justify-between py-0.5">
+                            <span>{n.name}</span>
+                            <span className="font-mono">{val} {n.unit}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
