@@ -329,6 +329,17 @@ const IngredientsPage: React.FC = () => {
                           <label className="text-xs flex-1 min-w-0 truncate" title={`${n.name} (${n.nameEn})`}>
                             {n.name} <span className="text-muted-foreground">({n.unit})</span>
                           </label>
+                          {n.id === 'vitamin_e' && (
+                            <Select value={vitaminEType} onValueChange={(v: 'natural' | 'synthetic') => setVitaminEType(v)}>
+                              <SelectTrigger className="h-7 w-24 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="synthetic">合成型</SelectItem>
+                                <SelectItem value="natural">天然型</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                           <Input
                             value={nutrientValues[n.id] || ''}
                             onChange={e => setNutrientValues(p => ({ ...p, [n.id]: e.target.value }))}
