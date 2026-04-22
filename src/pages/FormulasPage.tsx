@@ -93,6 +93,9 @@ const FormulasPage: React.FC = () => {
   const [compareMode, setCompareMode] = useState(false);
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
 
+  // View detail dialog
+  const [viewFormula, setViewFormula] = useState<Formula | null>(null);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const sortedFormulas = useMemo(() => {
@@ -400,6 +403,7 @@ const FormulasPage: React.FC = () => {
                         onExport={handleExport}
                         onDelete={handleDelete}
                         onNavigate={(id) => navigate(`/editor?formula=${id}`)}
+                        onView={(form) => setViewFormula(form)}
                         compareMode={compareMode}
                         compareChecked={compareIds.has(f.id)}
                         onToggleCompare={toggleCompare}
