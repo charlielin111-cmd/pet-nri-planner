@@ -245,6 +245,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 Latest Update: {lastUpdate}
               </div>
             )}
+            <Button variant="ghost" size="icon" onClick={() => setAppUpdatesOpen(true)} title="APP 更新備註">
+              <Bell className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </header>
