@@ -637,7 +637,12 @@ const FormulasPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-medium mb-2">五大營養類別百分比（已統一換算為克）</h4>
+                    <h4 className="text-sm font-medium mb-2">
+                      五大營養類別百分比
+                      <span className="text-[10px] text-muted-foreground ml-1 font-normal">
+                        （分母：每份規格 {pieDenominator > 0 ? `${pieDenominator}g` : '-'}）
+                      </span>
+                    </h4>
                     <div className="rounded border overflow-hidden">
                       <table className="w-full text-xs">
                         <thead>
@@ -663,7 +668,7 @@ const FormulasPage: React.FC = () => {
                           <tr className="border-t font-semibold bg-muted/30">
                             <td className="px-2 py-1.5">合計</td>
                             <td className="px-2 py-1.5 text-right font-mono">{allGramsSum.toFixed(6)}</td>
-                            <td className="px-2 py-1.5 text-right font-mono">100.0000%</td>
+                            <td className="px-2 py-1.5 text-right font-mono">{formatPct(allGramsSum)}</td>
                           </tr>
                         </tfoot>
                       </table>
