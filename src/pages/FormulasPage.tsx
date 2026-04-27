@@ -545,8 +545,8 @@ const FormulasPage: React.FC = () => {
 
       {/* View formula detail dialog */}
       <Dialog open={!!viewFormula} onOpenChange={(o) => !o && setViewFormula(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b">
             <DialogTitle>
               配方詳情 — <span className="font-mono text-base">{viewFormula?.code}</span> {viewFormula?.name}
             </DialogTitle>
@@ -587,7 +587,7 @@ const FormulasPage: React.FC = () => {
             };
 
             return (
-              <ScrollArea className="flex-1 min-h-0 pr-3">
+              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-6 py-4">
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div><span className="text-muted-foreground">對應通路：</span>{ch?.name || '-'}</div>
@@ -689,7 +689,7 @@ const FormulasPage: React.FC = () => {
                     })}
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
             );
           })()}
         </DialogContent>

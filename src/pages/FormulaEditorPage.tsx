@@ -34,6 +34,7 @@ const DEFAULT_SUMMARY_ITEMS = [
   { id: 'crude_fat', label: '粗脂肪' },
   { id: 'carbohydrate', label: '碳水化合物' },
   { id: 'ca_ph_ratio', label: '鈣磷比' },
+  { id: 'calories_per_100g', label: '每 100g 熱量' },
 ];
 
 interface SortableItemProps {
@@ -237,8 +238,20 @@ const FormulaEditorPage: React.FC = () => {
   const phosphorus = totals['phosphorus'] || 0;
   const caPhRatio = phosphorus > 0 ? (calcium / phosphorus).toFixed(2) : 'N/A';
 
+  // Total weight of formula in grams (sum of ingredient amounts)
+  const totalFormulaWeight = useMemo(
+    () => formulaIngredients.reduce((s, fi) => s + fi.amount, 0),
+    [formulaIngredients]
+  );
+
+  // kcal per 100 g of formula
+  const caloriesPer100g = totalFormulaWeight > 0 ? (totalCalories / totalFormulaWeight) * 100 : 0;
+
   const getSummaryValue = (id: string) => {
     if (id === 'ca_ph_ratio') return caPhRatio;
+    if (id === 'calories_per_100g') {
+      return totalFormulaWeight > 0 ? `${caloriesPer100g.toFixed(2)} kcal` : 'N/A';
+    }
     const val = totals[id];
     if (val === undefined) return 'N/A';
     const n = nutrients.find(nt => nt.id === id);
@@ -246,7 +259,10 @@ const FormulaEditorPage: React.FC = () => {
   };
 
   const availableForSummary = useMemo(() => {
-    const special = [{ id: 'ca_ph_ratio', label: '鈣磷比 (鈣/磷)' }];
+    const special = [
+      { id: 'ca_ph_ratio', label: '鈣磷比 (鈣/磷)' },
+      { id: 'calories_per_100g', label: '每 100g 熱量 (kcal)' },
+    ];
     const fromNutrients = nutrients.map(n => ({ id: n.id, label: `${n.name} (${n.unit})` }));
     return [...special, ...fromNutrients];
   }, [nutrients]);
@@ -258,7 +274,8 @@ const FormulaEditorPage: React.FC = () => {
     });
   };
 
-  // Pie chart uses grams as a common base, applying vitamin E type per ingredient
+  // Pie chart: denominator is the formula's serving size (g). Each category's gram total
+  // is divided by serving size so percentages reflect "per serving" composition.
   const pieData = useMemo(() => {
     const gramTotals = computeNutrientGramTotals(formulaIngredients, ingredients, nutrients);
     const categories: Record<string, number> = {};
@@ -271,10 +288,13 @@ const FormulaEditorPage: React.FC = () => {
     });
     return Object.entries(categories)
       .filter(([, v]) => v > 0)
-      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(4)) }));
+      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(6)) }));
   }, [formulaIngredients, ingredients, nutrients]);
 
-  const totalPieValue = pieData.reduce((s, d) => s + d.value, 0);
+  // Denominator for percentage display = formula serving size in grams (fallback to total weight)
+  const pieDenominator = selectedFormula?.servingSize && selectedFormula.servingSize > 0
+    ? selectedFormula.servingSize
+    : formulaIngredients.reduce((s, fi) => s + fi.amount, 0);
 
   const ingredientPieData = useMemo(() => {
     return formulaIngredients
@@ -291,13 +311,12 @@ const FormulaEditorPage: React.FC = () => {
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
-    if (totalCalories <= 0) return [];
     return nutrients
       .filter(n => selectedChannel.limits[n.id])
       .map(n => {
         const limit = selectedChannel.limits[n.id];
-        const rawValue = totals[n.id] || 0;
-        const value = (rawValue / totalCalories) * 1000;
+        // Use the nutrient total directly (sum of "營養成分加總") in its native unit
+        const value = totals[n.id] || 0;
         let passed = true;
         if (limit.type === 'min' && limit.min !== undefined) passed = value >= limit.min;
         else if (limit.type === 'max' && limit.max !== undefined) passed = value <= limit.max;
@@ -307,7 +326,7 @@ const FormulaEditorPage: React.FC = () => {
         }
         return { nutrientId: n.id, nutrientName: n.name, value, unit: n.unit, limit, passed };
       });
-  }, [selectedChannel, nutrients, totals, totalCalories]);
+  }, [selectedChannel, nutrients, totals]);
 
   const failures = validationResults.filter(r => !r.passed);
 
@@ -686,7 +705,10 @@ const FormulaEditorPage: React.FC = () => {
 
         <div className="space-y-4">
           <Card className="p-4">
-            <h3 className="text-sm font-medium mb-3">營養成分組成圖</h3>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-medium">營養成分組成圖</h3>
+              <span className="text-[10px] text-muted-foreground">分母：每份規格 {pieDenominator > 0 ? `${pieDenominator}g` : '-'}</span>
+            </div>
             {pieData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height={240}>
@@ -704,7 +726,7 @@ const FormulaEditorPage: React.FC = () => {
                         <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
                         <span>{d.name}</span>
                       </div>
-                      <span className="font-medium">{totalPieValue > 0 ? ((d.value / totalPieValue) * 100).toFixed(1) : 0}%</span>
+                      <span className="font-medium">{pieDenominator > 0 ? ((d.value / pieDenominator) * 100).toFixed(4) : '0.0000'}%</span>
                     </div>
                   ))}
                 </div>
@@ -717,6 +739,14 @@ const FormulaEditorPage: React.FC = () => {
 
           <Card className="p-4 max-h-96 overflow-y-auto scrollbar-thin">
             <h3 className="text-sm font-medium mb-2">營養成分加總</h3>
+            <div className="bg-muted/40 rounded-md px-2 py-1.5 mb-3 flex justify-between text-xs">
+              <span className="font-medium">總熱量</span>
+              <span className="font-mono">{totalCalories.toFixed(2)} kcal</span>
+            </div>
+            <div className="bg-primary/5 rounded-md px-2 py-1.5 mb-3 flex justify-between text-xs">
+              <span className="font-medium">每 100g 熱量</span>
+              <span className="font-mono">{totalFormulaWeight > 0 ? `${caloriesPer100g.toFixed(2)} kcal` : 'N/A'}</span>
+            </div>
             {Object.entries(NUTRIENT_CATEGORY_LABELS).map(([cat, label]) => {
               const catNutrients = nutrients.filter(n => n.category === cat);
               if (catNutrients.length === 0) return null;
