@@ -237,8 +237,20 @@ const FormulaEditorPage: React.FC = () => {
   const phosphorus = totals['phosphorus'] || 0;
   const caPhRatio = phosphorus > 0 ? (calcium / phosphorus).toFixed(2) : 'N/A';
 
+  // Total weight of formula in grams (sum of ingredient amounts)
+  const totalFormulaWeight = useMemo(
+    () => formulaIngredients.reduce((s, fi) => s + fi.amount, 0),
+    [formulaIngredients]
+  );
+
+  // kcal per 100 g of formula
+  const caloriesPer100g = totalFormulaWeight > 0 ? (totalCalories / totalFormulaWeight) * 100 : 0;
+
   const getSummaryValue = (id: string) => {
     if (id === 'ca_ph_ratio') return caPhRatio;
+    if (id === 'calories_per_100g') {
+      return totalFormulaWeight > 0 ? `${caloriesPer100g.toFixed(2)} kcal` : 'N/A';
+    }
     const val = totals[id];
     if (val === undefined) return 'N/A';
     const n = nutrients.find(nt => nt.id === id);
@@ -246,7 +258,10 @@ const FormulaEditorPage: React.FC = () => {
   };
 
   const availableForSummary = useMemo(() => {
-    const special = [{ id: 'ca_ph_ratio', label: '鈣磷比 (鈣/磷)' }];
+    const special = [
+      { id: 'ca_ph_ratio', label: '鈣磷比 (鈣/磷)' },
+      { id: 'calories_per_100g', label: '每 100g 熱量 (kcal)' },
+    ];
     const fromNutrients = nutrients.map(n => ({ id: n.id, label: `${n.name} (${n.unit})` }));
     return [...special, ...fromNutrients];
   }, [nutrients]);
