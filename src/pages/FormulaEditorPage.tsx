@@ -295,13 +295,12 @@ const FormulaEditorPage: React.FC = () => {
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
-    if (totalCalories <= 0) return [];
     return nutrients
       .filter(n => selectedChannel.limits[n.id])
       .map(n => {
         const limit = selectedChannel.limits[n.id];
-        const rawValue = totals[n.id] || 0;
-        const value = (rawValue / totalCalories) * 1000;
+        // Use the nutrient total directly (sum of "營養成分加總") in its native unit
+        const value = totals[n.id] || 0;
         let passed = true;
         if (limit.type === 'min' && limit.min !== undefined) passed = value >= limit.min;
         else if (limit.type === 'max' && limit.max !== undefined) passed = value <= limit.max;
@@ -311,7 +310,7 @@ const FormulaEditorPage: React.FC = () => {
         }
         return { nutrientId: n.id, nutrientName: n.name, value, unit: n.unit, limit, passed };
       });
-  }, [selectedChannel, nutrients, totals, totalCalories]);
+  }, [selectedChannel, nutrients, totals]);
 
   const failures = validationResults.filter(r => !r.passed);
 
