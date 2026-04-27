@@ -34,6 +34,7 @@ const DEFAULT_SUMMARY_ITEMS = [
   { id: 'crude_fat', label: '粗脂肪' },
   { id: 'carbohydrate', label: '碳水化合物' },
   { id: 'ca_ph_ratio', label: '鈣磷比' },
+  { id: 'calories_per_100g', label: '每 100g 熱量' },
 ];
 
 interface SortableItemProps {
