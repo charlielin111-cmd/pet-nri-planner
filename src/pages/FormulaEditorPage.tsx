@@ -531,6 +531,16 @@ const FormulaEditorPage: React.FC = () => {
               {channels.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={editorUndo}
+            disabled={editorUndoCount === 0}
+            className="gap-1.5"
+            title="復原上一步配方編輯 (Ctrl+Z)"
+          >
+            <RotateCcw className="h-4 w-4" /> 復原{editorUndoCount > 0 ? ` (${editorUndoCount})` : ''}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleShowVersions} disabled={!selectedFormulaId} className="gap-1.5">
             <History className="h-4 w-4" /> 版本
           </Button>
