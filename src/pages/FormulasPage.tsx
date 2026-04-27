@@ -689,7 +689,7 @@ const FormulasPage: React.FC = () => {
                     })}
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
             );
           })()}
         </DialogContent>
