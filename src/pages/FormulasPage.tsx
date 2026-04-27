@@ -557,14 +557,13 @@ const FormulasPage: React.FC = () => {
             const base = viewFormula.servingSize || totalWeight;
             const { totals, totalCalories } = getFormulaTotals(viewFormula);
 
-            // Compute category percentages using "convert-then-sum" in grams
+            // Compute category percentages — match FormulaEditorPage pie chart logic:
+            // denominator = formula serving size (g), fallback to totalWeight.
             const categoryGrams: Record<string, number> = {};
             let allGramsSum = 0;
             nutrients.forEach(n => {
               const valNative = totals[n.id];
               if (valNative === undefined) return;
-              // Find first ingredient using vit E type (for vitamin E) — simplified: use synthetic default
-              // Use representative ingredient: we accumulate per ingredient for accuracy
               let grams = 0;
               viewFormula.ingredients.forEach(fi => {
                 const ing = ingredients.find(i => i.id === fi.ingredientId);
@@ -578,9 +577,14 @@ const FormulasPage: React.FC = () => {
               allGramsSum += grams;
             });
 
+            // Denominator: serving size (g) — matches FormulaEditorPage 營養成分組成圖
+            const pieDenominator = viewFormula.servingSize && viewFormula.servingSize > 0
+              ? viewFormula.servingSize
+              : totalWeight;
+
             const formatPct = (g: number) => {
-              if (allGramsSum <= 0) return '0.0000%';
-              const pct = (g / allGramsSum) * 100;
+              if (pieDenominator <= 0) return '0.0000%';
+              const pct = (g / pieDenominator) * 100;
               if (pct === 0) return '0.0000%';
               if (pct < 0.0001) return pct.toFixed(10) + '%';
               return pct.toFixed(4) + '%';
@@ -633,7 +637,12 @@ const FormulasPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-medium mb-2">五大營養類別百分比（已統一換算為克）</h4>
+                    <h4 className="text-sm font-medium mb-2">
+                      五大營養類別百分比
+                      <span className="text-[10px] text-muted-foreground ml-1 font-normal">
+                        （分母：每份規格 {pieDenominator > 0 ? `${pieDenominator}g` : '-'}）
+                      </span>
+                    </h4>
                     <div className="rounded border overflow-hidden">
                       <table className="w-full text-xs">
                         <thead>
@@ -659,7 +668,7 @@ const FormulasPage: React.FC = () => {
                           <tr className="border-t font-semibold bg-muted/30">
                             <td className="px-2 py-1.5">合計</td>
                             <td className="px-2 py-1.5 text-right font-mono">{allGramsSum.toFixed(6)}</td>
-                            <td className="px-2 py-1.5 text-right font-mono">100.0000%</td>
+                            <td className="px-2 py-1.5 text-right font-mono">{formatPct(allGramsSum)}</td>
                           </tr>
                         </tfoot>
                       </table>

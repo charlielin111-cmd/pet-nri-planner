@@ -134,6 +134,25 @@ const FormulaEditorPage: React.FC = () => {
   const [summaryEditOpen, setSummaryEditOpen] = useState(false);
   const [usePercent, setUsePercent] = useState(false);
 
+  // Local undo stack for ingredient/percent edits (per editor session)
+  const editorUndoStack = React.useRef<FormulaIngredient[][]>([]);
+  const [editorUndoCount, setEditorUndoCount] = useState(0);
+  const MAX_EDITOR_UNDO = 50;
+  const pushEditorUndo = (snapshot: FormulaIngredient[]) => {
+    editorUndoStack.current = [
+      ...editorUndoStack.current.slice(-(MAX_EDITOR_UNDO - 1)),
+      snapshot.map(fi => ({ ...fi })),
+    ];
+    setEditorUndoCount(editorUndoStack.current.length);
+  };
+  const editorUndo = () => {
+    const prev = editorUndoStack.current.pop();
+    if (prev) {
+      setFormulaIngredients(prev);
+      setEditorUndoCount(editorUndoStack.current.length);
+    }
+  };
+
   // Version control state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [patchNotes, setPatchNotes] = useState('');
@@ -163,12 +182,32 @@ const FormulaEditorPage: React.FC = () => {
       setFormulaIngredients([...selectedFormula.ingredients]);
       setSelectedChannelId(selectedFormula.channelId || '');
       setSummaryItems(selectedFormula.summaryItems && selectedFormula.summaryItems.length > 0 ? selectedFormula.summaryItems : DEFAULT_SUMMARY_ITEMS);
+      // Reset undo stack when switching formula
+      editorUndoStack.current = [];
+      setEditorUndoCount(0);
     }
   }, [selectedFormula]);
 
   useEffect(() => {
     if (formulaId) setSelectedFormulaId(formulaId);
   }, [formulaId]);
+
+  // Keyboard shortcut: Ctrl/Cmd+Z to undo edits
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const tag = (e.target as HTMLElement)?.tagName;
+        // Allow native undo inside text inputs / textareas
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (editorUndoStack.current.length > 0) {
+          e.preventDefault();
+          editorUndo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -180,10 +219,12 @@ const FormulaEditorPage: React.FC = () => {
 
   const addIngredient = (ingId: string) => {
     if (formulaIngredients.some(fi => fi.ingredientId === ingId)) return;
+    pushEditorUndo(formulaIngredients);
     setFormulaIngredients(prev => [...prev, { ingredientId: ingId, amount: 0.01 }]);
   };
 
   const updateAmount = (idx: number, val: number) => {
+    pushEditorUndo(formulaIngredients);
     setFormulaIngredients(prev => prev.map((fi, i) => i === idx ? { ...fi, amount: val } : fi));
   };
 
@@ -192,12 +233,14 @@ const FormulaEditorPage: React.FC = () => {
     if (baseWeight <= 0) return;
     const clampedPct = Math.max(0, newPct);
     const newAmount = (clampedPct / 100) * baseWeight;
+    pushEditorUndo(formulaIngredients);
     setFormulaIngredients(prev => prev.map((fi, i) =>
       i === idx ? { ...fi, amount: parseFloat(newAmount.toFixed(3)) } : fi
     ));
   };
 
   const removeIngredient = (idx: number) => {
+    pushEditorUndo(formulaIngredients);
     setFormulaIngredients(prev => prev.filter((_, i) => i !== idx));
   };
 
@@ -207,6 +250,7 @@ const FormulaEditorPage: React.FC = () => {
     const oldIdx = formulaIngredients.findIndex((fi, i) => fi.ingredientId + '-' + i === active.id);
     const newIdx = formulaIngredients.findIndex((fi, i) => fi.ingredientId + '-' + i === over.id);
     if (oldIdx !== -1 && newIdx !== -1) {
+      pushEditorUndo(formulaIngredients);
       setFormulaIngredients(prev => arrayMove(prev, oldIdx, newIdx));
     }
   };
@@ -309,13 +353,20 @@ const FormulaEditorPage: React.FC = () => {
 
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
+  // Limit values are stored as "per 1000 kcal" basis. Effective limit for this
+  // formula = stored_limit * (totalCalories / 1000). Then compare totals vs effective.
+  const calorieScale = totalCalories / 1000;
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
     return nutrients
       .filter(n => selectedChannel.limits[n.id])
       .map(n => {
-        const limit = selectedChannel.limits[n.id];
-        // Use the nutrient total directly (sum of "營養成分加總") in its native unit
+        const rawLimit = selectedChannel.limits[n.id];
+        const limit = {
+          type: rawLimit.type,
+          min: rawLimit.min !== undefined ? rawLimit.min * calorieScale : undefined,
+          max: rawLimit.max !== undefined ? rawLimit.max * calorieScale : undefined,
+        };
         const value = totals[n.id] || 0;
         let passed = true;
         if (limit.type === 'min' && limit.min !== undefined) passed = value >= limit.min;
@@ -326,7 +377,7 @@ const FormulaEditorPage: React.FC = () => {
         }
         return { nutrientId: n.id, nutrientName: n.name, value, unit: n.unit, limit, passed };
       });
-  }, [selectedChannel, nutrients, totals]);
+  }, [selectedChannel, nutrients, totals, calorieScale]);
 
   const failures = validationResults.filter(r => !r.passed);
 
@@ -480,6 +531,16 @@ const FormulaEditorPage: React.FC = () => {
               {channels.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={editorUndo}
+            disabled={editorUndoCount === 0}
+            className="gap-1.5"
+            title="復原上一步配方編輯 (Ctrl+Z)"
+          >
+            <RotateCcw className="h-4 w-4" /> 復原{editorUndoCount > 0 ? ` (${editorUndoCount})` : ''}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleShowVersions} disabled={!selectedFormulaId} className="gap-1.5">
             <History className="h-4 w-4" /> 版本
           </Button>
