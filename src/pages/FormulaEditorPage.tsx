@@ -736,6 +736,14 @@ const FormulaEditorPage: React.FC = () => {
 
           <Card className="p-4 max-h-96 overflow-y-auto scrollbar-thin">
             <h3 className="text-sm font-medium mb-2">營養成分加總</h3>
+            <div className="bg-muted/40 rounded-md px-2 py-1.5 mb-3 flex justify-between text-xs">
+              <span className="font-medium">總熱量</span>
+              <span className="font-mono">{totalCalories.toFixed(2)} kcal</span>
+            </div>
+            <div className="bg-primary/5 rounded-md px-2 py-1.5 mb-3 flex justify-between text-xs">
+              <span className="font-medium">每 100g 熱量</span>
+              <span className="font-mono">{totalFormulaWeight > 0 ? `${caloriesPer100g.toFixed(2)} kcal` : 'N/A'}</span>
+            </div>
             {Object.entries(NUTRIENT_CATEGORY_LABELS).map(([cat, label]) => {
               const catNutrients = nutrients.filter(n => n.category === cat);
               if (catNutrients.length === 0) return null;
