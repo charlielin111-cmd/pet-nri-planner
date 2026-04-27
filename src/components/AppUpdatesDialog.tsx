@@ -5,8 +5,9 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Bell, Plus, Trash2, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface AppUpdateNote {
   id: string;
@@ -15,22 +16,6 @@ export interface AppUpdateNote {
   createdAt: string;
 }
 
-const STORAGE_KEY = 'petNri_appUpdates';
-
-const loadUpdates = (): AppUpdateNote[] => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as AppUpdateNote[];
-  } catch {
-    return [];
-  }
-};
-
-const saveUpdates = (items: AppUpdateNote[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-};
-
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,6 +23,7 @@ interface Props {
 
 export const AppUpdatesDialog: React.FC<Props> = ({ open, onOpenChange }) => {
   const [updates, setUpdates] = useState<AppUpdateNote[]>([]);
+  const [loading, setLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [version, setVersion] = useState('');
   const [notes, setNotes] = useState('');
@@ -45,35 +31,73 @@ export const AppUpdatesDialog: React.FC<Props> = ({ open, onOpenChange }) => {
   const [editVersion, setEditVersion] = useState('');
   const [editNotes, setEditNotes] = useState('');
 
+  const fetchUpdates = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('app_updates')
+      .select('id, version, notes, created_at')
+      .order('created_at', { ascending: false });
+    setLoading(false);
+    if (error) {
+      toast.error('讀取更新備註失敗');
+      return;
+    }
+    setUpdates(
+      (data || []).map(d => ({
+        id: d.id,
+        version: d.version,
+        notes: d.notes,
+        createdAt: d.created_at,
+      }))
+    );
+  };
+
   useEffect(() => {
-    if (open) setUpdates(loadUpdates());
+    if (open) fetchUpdates();
   }, [open]);
 
-  const handleAdd = () => {
+  // Realtime sync
+  useEffect(() => {
+    if (!open) return;
+    const channel = supabase
+      .channel('app_updates_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_updates' }, () => {
+        fetchUpdates();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [open]);
+
+  const handleAdd = async () => {
     if (!version.trim() || !notes.trim()) {
       toast.error('請填寫版本與更新內容');
       return;
     }
-    const next: AppUpdateNote = {
-      id: crypto.randomUUID(),
+    const { error } = await supabase.from('app_updates').insert({
       version: version.trim(),
       notes: notes.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    const list = [next, ...updates];
-    setUpdates(list);
-    saveUpdates(list);
+    });
+    if (error) {
+      toast.error('新增失敗');
+      return;
+    }
     setVersion('');
     setNotes('');
     setAddOpen(false);
-    toast.success('已新增更新備註');
+    toast.success('已新增更新備註（全站同步）');
+    fetchUpdates();
   };
 
-  const handleDelete = (id: string) => {
-    const list = updates.filter(u => u.id !== id);
-    setUpdates(list);
-    saveUpdates(list);
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('app_updates').delete().eq('id', id);
+    if (error) {
+      toast.error('刪除失敗');
+      return;
+    }
     toast.success('已刪除');
+    fetchUpdates();
   };
 
   const startEdit = (u: AppUpdateNote) => {
@@ -88,18 +112,22 @@ export const AppUpdatesDialog: React.FC<Props> = ({ open, onOpenChange }) => {
     setEditNotes('');
   };
 
-  const saveEdit = (id: string) => {
+  const saveEdit = async (id: string) => {
     if (!editVersion.trim() || !editNotes.trim()) {
       toast.error('內容不可為空');
       return;
     }
-    const list = updates.map(u =>
-      u.id === id ? { ...u, version: editVersion.trim(), notes: editNotes.trim() } : u
-    );
-    setUpdates(list);
-    saveUpdates(list);
+    const { error } = await supabase
+      .from('app_updates')
+      .update({ version: editVersion.trim(), notes: editNotes.trim(), updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) {
+      toast.error('更新失敗');
+      return;
+    }
     setEditingId(null);
     toast.success('已更新');
+    fetchUpdates();
   };
 
   return (
@@ -109,6 +137,7 @@ export const AppUpdatesDialog: React.FC<Props> = ({ open, onOpenChange }) => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bell className="h-4 w-4" /> APP 更新備註
+              <span className="text-xs font-normal text-muted-foreground ml-1">（全站同步）</span>
             </DialogTitle>
           </DialogHeader>
           <div className="flex justify-end">
@@ -117,7 +146,11 @@ export const AppUpdatesDialog: React.FC<Props> = ({ open, onOpenChange }) => {
             </Button>
           </div>
           <ScrollArea className="max-h-[55vh] pr-2">
-            {updates.length === 0 ? (
+            {loading ? (
+              <div className="py-8 flex items-center justify-center text-muted-foreground text-sm gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> 載入中...
+              </div>
+            ) : updates.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">尚無更新紀錄</p>
             ) : (
               <div className="space-y-2">
