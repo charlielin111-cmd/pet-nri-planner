@@ -134,6 +134,25 @@ const FormulaEditorPage: React.FC = () => {
   const [summaryEditOpen, setSummaryEditOpen] = useState(false);
   const [usePercent, setUsePercent] = useState(false);
 
+  // Local undo stack for ingredient/percent edits (per editor session)
+  const editorUndoStack = React.useRef<FormulaIngredient[][]>([]);
+  const [editorUndoCount, setEditorUndoCount] = useState(0);
+  const MAX_EDITOR_UNDO = 50;
+  const pushEditorUndo = (snapshot: FormulaIngredient[]) => {
+    editorUndoStack.current = [
+      ...editorUndoStack.current.slice(-(MAX_EDITOR_UNDO - 1)),
+      snapshot.map(fi => ({ ...fi })),
+    ];
+    setEditorUndoCount(editorUndoStack.current.length);
+  };
+  const editorUndo = () => {
+    const prev = editorUndoStack.current.pop();
+    if (prev) {
+      setFormulaIngredients(prev);
+      setEditorUndoCount(editorUndoStack.current.length);
+    }
+  };
+
   // Version control state
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [patchNotes, setPatchNotes] = useState('');
