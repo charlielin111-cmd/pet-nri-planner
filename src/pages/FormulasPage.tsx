@@ -557,14 +557,13 @@ const FormulasPage: React.FC = () => {
             const base = viewFormula.servingSize || totalWeight;
             const { totals, totalCalories } = getFormulaTotals(viewFormula);
 
-            // Compute category percentages using "convert-then-sum" in grams
+            // Compute category percentages — match FormulaEditorPage pie chart logic:
+            // denominator = formula serving size (g), fallback to totalWeight.
             const categoryGrams: Record<string, number> = {};
             let allGramsSum = 0;
             nutrients.forEach(n => {
               const valNative = totals[n.id];
               if (valNative === undefined) return;
-              // Find first ingredient using vit E type (for vitamin E) — simplified: use synthetic default
-              // Use representative ingredient: we accumulate per ingredient for accuracy
               let grams = 0;
               viewFormula.ingredients.forEach(fi => {
                 const ing = ingredients.find(i => i.id === fi.ingredientId);
@@ -578,9 +577,14 @@ const FormulasPage: React.FC = () => {
               allGramsSum += grams;
             });
 
+            // Denominator: serving size (g) — matches FormulaEditorPage 營養成分組成圖
+            const pieDenominator = viewFormula.servingSize && viewFormula.servingSize > 0
+              ? viewFormula.servingSize
+              : totalWeight;
+
             const formatPct = (g: number) => {
-              if (allGramsSum <= 0) return '0.0000%';
-              const pct = (g / allGramsSum) * 100;
+              if (pieDenominator <= 0) return '0.0000%';
+              const pct = (g / pieDenominator) * 100;
               if (pct === 0) return '0.0000%';
               if (pct < 0.0001) return pct.toFixed(10) + '%';
               return pct.toFixed(4) + '%';
