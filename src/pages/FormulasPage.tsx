@@ -587,7 +587,7 @@ const FormulasPage: React.FC = () => {
             };
 
             return (
-              <ScrollArea className="flex-1 min-h-0 pr-3">
+              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-6 py-4">
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div><span className="text-muted-foreground">對應通路：</span>{ch?.name || '-'}</div>
