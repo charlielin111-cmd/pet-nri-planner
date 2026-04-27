@@ -182,12 +182,32 @@ const FormulaEditorPage: React.FC = () => {
       setFormulaIngredients([...selectedFormula.ingredients]);
       setSelectedChannelId(selectedFormula.channelId || '');
       setSummaryItems(selectedFormula.summaryItems && selectedFormula.summaryItems.length > 0 ? selectedFormula.summaryItems : DEFAULT_SUMMARY_ITEMS);
+      // Reset undo stack when switching formula
+      editorUndoStack.current = [];
+      setEditorUndoCount(0);
     }
   }, [selectedFormula]);
 
   useEffect(() => {
     if (formulaId) setSelectedFormulaId(formulaId);
   }, [formulaId]);
+
+  // Keyboard shortcut: Ctrl/Cmd+Z to undo edits
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const tag = (e.target as HTMLElement)?.tagName;
+        // Allow native undo inside text inputs / textareas
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (editorUndoStack.current.length > 0) {
+          e.preventDefault();
+          editorUndo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -199,10 +219,12 @@ const FormulaEditorPage: React.FC = () => {
 
   const addIngredient = (ingId: string) => {
     if (formulaIngredients.some(fi => fi.ingredientId === ingId)) return;
+    pushEditorUndo(formulaIngredients);
     setFormulaIngredients(prev => [...prev, { ingredientId: ingId, amount: 0.01 }]);
   };
 
   const updateAmount = (idx: number, val: number) => {
+    pushEditorUndo(formulaIngredients);
     setFormulaIngredients(prev => prev.map((fi, i) => i === idx ? { ...fi, amount: val } : fi));
   };
 
@@ -211,12 +233,14 @@ const FormulaEditorPage: React.FC = () => {
     if (baseWeight <= 0) return;
     const clampedPct = Math.max(0, newPct);
     const newAmount = (clampedPct / 100) * baseWeight;
+    pushEditorUndo(formulaIngredients);
     setFormulaIngredients(prev => prev.map((fi, i) =>
       i === idx ? { ...fi, amount: parseFloat(newAmount.toFixed(3)) } : fi
     ));
   };
 
   const removeIngredient = (idx: number) => {
+    pushEditorUndo(formulaIngredients);
     setFormulaIngredients(prev => prev.filter((_, i) => i !== idx));
   };
 
@@ -226,6 +250,7 @@ const FormulaEditorPage: React.FC = () => {
     const oldIdx = formulaIngredients.findIndex((fi, i) => fi.ingredientId + '-' + i === active.id);
     const newIdx = formulaIngredients.findIndex((fi, i) => fi.ingredientId + '-' + i === over.id);
     if (oldIdx !== -1 && newIdx !== -1) {
+      pushEditorUndo(formulaIngredients);
       setFormulaIngredients(prev => arrayMove(prev, oldIdx, newIdx));
     }
   };
