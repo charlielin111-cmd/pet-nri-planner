@@ -708,7 +708,7 @@ const FormulaEditorPage: React.FC = () => {
                         <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
                         <span>{d.name}</span>
                       </div>
-                      <span className="font-medium">{totalPieValue > 0 ? ((d.value / totalPieValue) * 100).toFixed(1) : 0}%</span>
+                      <span className="font-medium">{pieDenominator > 0 ? ((d.value / pieDenominator) * 100).toFixed(4) : '0.0000'}%</span>
                     </div>
                   ))}
                 </div>
