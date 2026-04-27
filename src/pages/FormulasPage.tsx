@@ -545,7 +545,7 @@ const FormulasPage: React.FC = () => {
 
       {/* View formula detail dialog */}
       <Dialog open={!!viewFormula} onOpenChange={(o) => !o && setViewFormula(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 gap-0">
           <DialogHeader>
             <DialogTitle>
               配方詳情 — <span className="font-mono text-base">{viewFormula?.code}</span> {viewFormula?.name}
