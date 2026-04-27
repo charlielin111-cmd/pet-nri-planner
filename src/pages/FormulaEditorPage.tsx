@@ -705,7 +705,10 @@ const FormulaEditorPage: React.FC = () => {
 
         <div className="space-y-4">
           <Card className="p-4">
-            <h3 className="text-sm font-medium mb-3">營養成分組成圖</h3>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-medium">營養成分組成圖</h3>
+              <span className="text-[10px] text-muted-foreground">分母：每份規格 {pieDenominator > 0 ? `${pieDenominator}g` : '-'}</span>
+            </div>
             {pieData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height={240}>
