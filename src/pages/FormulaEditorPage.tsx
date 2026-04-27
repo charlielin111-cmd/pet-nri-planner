@@ -309,13 +309,20 @@ const FormulaEditorPage: React.FC = () => {
 
 
   const selectedChannel = channels.find(c => c.id === selectedChannelId);
+  // Limit values are stored as "per 1000 kcal" basis. Effective limit for this
+  // formula = stored_limit * (totalCalories / 1000). Then compare totals vs effective.
+  const calorieScale = totalCalories / 1000;
   const validationResults: ValidationResult[] = useMemo(() => {
     if (!selectedChannel) return [];
     return nutrients
       .filter(n => selectedChannel.limits[n.id])
       .map(n => {
-        const limit = selectedChannel.limits[n.id];
-        // Use the nutrient total directly (sum of "營養成分加總") in its native unit
+        const rawLimit = selectedChannel.limits[n.id];
+        const limit = {
+          type: rawLimit.type,
+          min: rawLimit.min !== undefined ? rawLimit.min * calorieScale : undefined,
+          max: rawLimit.max !== undefined ? rawLimit.max * calorieScale : undefined,
+        };
         const value = totals[n.id] || 0;
         let passed = true;
         if (limit.type === 'min' && limit.min !== undefined) passed = value >= limit.min;
@@ -326,7 +333,7 @@ const FormulaEditorPage: React.FC = () => {
         }
         return { nutrientId: n.id, nutrientName: n.name, value, unit: n.unit, limit, passed };
       });
-  }, [selectedChannel, nutrients, totals]);
+  }, [selectedChannel, nutrients, totals, calorieScale]);
 
   const failures = validationResults.filter(r => !r.passed);
 
