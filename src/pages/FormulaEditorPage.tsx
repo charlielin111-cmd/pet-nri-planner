@@ -258,7 +258,8 @@ const FormulaEditorPage: React.FC = () => {
     });
   };
 
-  // Pie chart uses grams as a common base, applying vitamin E type per ingredient
+  // Pie chart: denominator is the formula's serving size (g). Each category's gram total
+  // is divided by serving size so percentages reflect "per serving" composition.
   const pieData = useMemo(() => {
     const gramTotals = computeNutrientGramTotals(formulaIngredients, ingredients, nutrients);
     const categories: Record<string, number> = {};
@@ -271,10 +272,13 @@ const FormulaEditorPage: React.FC = () => {
     });
     return Object.entries(categories)
       .filter(([, v]) => v > 0)
-      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(4)) }));
+      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(6)) }));
   }, [formulaIngredients, ingredients, nutrients]);
 
-  const totalPieValue = pieData.reduce((s, d) => s + d.value, 0);
+  // Denominator for percentage display = formula serving size in grams (fallback to total weight)
+  const pieDenominator = selectedFormula?.servingSize && selectedFormula.servingSize > 0
+    ? selectedFormula.servingSize
+    : formulaIngredients.reduce((s, fi) => s + fi.amount, 0);
 
   const ingredientPieData = useMemo(() => {
     return formulaIngredients
