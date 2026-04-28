@@ -67,6 +67,7 @@ const SortableIngredientRow: React.FC<SortableItemProps> = ({ fi, index, ingredi
       <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1">
         <GripVertical className="h-4 w-4" />
       </button>
+      <span className="text-xs font-mono text-muted-foreground w-6 shrink-0 text-right">{index + 1}.</span>
       <span className="text-xs font-mono text-muted-foreground w-16 shrink-0">{materialCode}</span>
       <span className="text-sm font-medium flex-1 min-w-0 truncate flex items-center gap-1">
         {ingredientName}
