@@ -606,6 +606,7 @@ const FormulasPage: React.FC = () => {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b bg-muted/50">
+                          <th className="text-left px-2 py-2 w-10">項次</th>
                           <th className="text-left px-2 py-2">編號</th>
                           <th className="text-left px-2 py-2">原料名稱</th>
                           <th className="text-right px-2 py-2">用量 (g)</th>
@@ -618,6 +619,7 @@ const FormulasPage: React.FC = () => {
                           const pct = base > 0 ? (fi.amount / base) * 100 : 0;
                           return (
                             <tr key={idx} className="border-b">
+                              <td className="px-2 py-1.5 font-mono text-muted-foreground">{idx + 1}</td>
                               <td className="px-2 py-1.5 font-mono text-muted-foreground">{ing?.materialCode || '-'}</td>
                               <td className="px-2 py-1.5">{ing?.name || '未知'}</td>
                               <td className="px-2 py-1.5 text-right font-mono">{fi.amount.toFixed(3)}</td>
@@ -628,7 +630,7 @@ const FormulasPage: React.FC = () => {
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 font-semibold">
-                          <td colSpan={2} className="px-2 py-2">合計</td>
+                          <td colSpan={3} className="px-2 py-2">合計</td>
                           <td className="px-2 py-2 text-right font-mono">{totalWeight.toFixed(3)}</td>
                           <td className="px-2 py-2 text-right font-mono">{base > 0 ? ((totalWeight / base) * 100).toFixed(3) : '0.000'}%</td>
                         </tr>
