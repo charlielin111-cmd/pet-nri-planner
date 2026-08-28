@@ -334,9 +334,13 @@ const FormulaEditorPage: React.FC = () => {
         categories[catLabel] = (categories[catLabel] || 0) + g;
       }
     });
+    const chartLabelMap: Record<string, string> = {
+      [NUTRIENT_CATEGORY_LABELS['protein_amino']]: '粗蛋白',
+      [NUTRIENT_CATEGORY_LABELS['fat_fatty']]: '粗脂肪',
+    };
     return Object.entries(categories)
       .filter(([, v]) => v > 0)
-      .map(([name, value]) => ({ name, value: parseFloat(value.toFixed(6)) }));
+      .map(([name, value]) => ({ name: chartLabelMap[name] || name, value: parseFloat(value.toFixed(6)) }));
   }, [formulaIngredients, ingredients, nutrients]);
 
   // Denominator for percentage display = formula serving size in grams (fallback to total weight)
