@@ -321,12 +321,15 @@ const FormulaEditorPage: React.FC = () => {
 
   // Pie chart: denominator is the formula's serving size (g). Each category's gram total
   // is divided by serving size so percentages reflect "per serving" composition.
+  // Protein & amino category uses only crude protein; fat & fatty category uses only crude fat.
   const pieData = useMemo(() => {
     const gramTotals = computeNutrientGramTotals(formulaIngredients, ingredients, nutrients);
     const categories: Record<string, number> = {};
     nutrients.forEach(n => {
       const g = gramTotals[n.id];
       if (g && g > 0) {
+        if (n.category === 'protein_amino' && n.id !== 'crude_protein') return;
+        if (n.category === 'fat_fatty' && n.id !== 'crude_fat') return;
         const catLabel = NUTRIENT_CATEGORY_LABELS[n.category];
         categories[catLabel] = (categories[catLabel] || 0) + g;
       }
